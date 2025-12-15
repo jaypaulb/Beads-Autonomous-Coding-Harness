@@ -40,6 +40,7 @@ ALLOWED_COMMANDS = {
     "init.sh",  # Init scripts; validated separately
     # Beads issue tracker
     "bd",  # Beads CLI for local issue tracking
+    "bv",  # Beads Viewer (graph intelligence for beads)
 }
 
 # Commands that need additional validation even when in the allowlist

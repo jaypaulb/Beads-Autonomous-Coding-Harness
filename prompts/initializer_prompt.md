@@ -217,6 +217,190 @@ bd info --json | grep -o '"prefix":"[^"]*"' | cut -d'"' -f4
 
 This file tells future sessions that Beads has been set up.
 
+### NEXT TASK: Validate Dependency Graph
+
+After creating all issues and dependencies, validate the graph structure to ensure
+there are no circular dependencies and that priorities align with structural importance.
+
+**CRITICAL:** This validation step prevents deployment-blocking issues like deadlocked
+dependency graphs. Do NOT skip this step.
+
+#### 1. Check for Circular Dependencies
+
+Circular dependencies create deadlocks where no work can proceed. Detect them early:
+
+```bash
+# Source BV helpers
+source /home/jaypaulb/agent-os/profiles/default/workflows/implementation/bv-helpers.md
+
+if bv_available; then
+    echo ""
+    echo "=== Validating Dependency Graph ==="
+    echo ""
+
+    if ! check_cycles; then
+        echo ""
+        echo "❌ ERROR: Circular dependencies detected!"
+        echo ""
+        echo "A cycle means Issue A depends on Issue B, which depends on Issue C,"
+        echo "which depends back on Issue A. This creates a deadlock where no work"
+        echo "can be completed."
+        echo ""
+        echo "To fix:"
+        echo "1. Review the cycle path shown above"
+        echo "2. Identify which dependency is incorrect or unnecessary"
+        echo "3. Remove it: bd dep remove <child-issue-id> <parent-issue-id> --type blocks"
+        echo "4. Re-run this validation"
+        echo ""
+        echo "DO NOT PROCEED until all cycles are resolved."
+        exit 1
+    else
+        echo "✓ No cycles found - dependency graph is valid"
+    fi
+fi
+```
+
+**Expected output:**
+```
+=== Validating Dependency Graph ===
+
+✓ No cycles found - dependency graph is valid
+```
+
+**If cycles are found:**
+- Review the cycle path shown (e.g., "bd-abc → bd-def → bd-ghi → bd-abc")
+- Identify the incorrect dependency in the chain
+- Remove it: `bd dep remove <issue-id> <blocker-id> --type blocks`
+- Re-run check_cycles until validation passes
+- **DO NOT CONTINUE** if cycles persist - this indicates a fundamental issue structure problem
+
+#### 2. Run Priority Analysis
+
+BV analyzes the dependency graph to identify priority misalignments - cases where
+human-assigned priority doesn't match structural importance:
+
+```bash
+if bv_available; then
+    echo ""
+    echo "=== Analyzing Priority Alignment ==="
+    echo ""
+
+    PRIORITY_RECS=$(get_priority_recommendations)
+
+    # Display summary
+    echo "$PRIORITY_RECS" | jq -r '
+        "Total issues analyzed: \(.summary.total_issues)",
+        "Priority recommendations: \(.summary.recommendations)",
+        "High confidence (>0.8): \(.summary.high_confidence)",
+        ""
+    '
+
+    # Show high-confidence misalignments
+    HIGH_CONF=$(echo "$PRIORITY_RECS" | jq -r '
+        .recommendations[] |
+        select(.confidence > 0.8) |
+        "  • \(.issue_id): P\(.current_priority) → P\(.suggested_priority) (\(.confidence*100 | round)% confidence)\n    Reason: \(.reasoning)"
+    ')
+
+    if [[ -n "$HIGH_CONF" && "$HIGH_CONF" != "" ]]; then
+        echo "High-confidence priority adjustments recommended:"
+        echo ""
+        echo "$HIGH_CONF"
+        echo ""
+
+        # Auto-apply high-confidence recommendations
+        echo "Applying high-confidence priority updates..."
+        echo "$PRIORITY_RECS" | jq -r '
+            .recommendations[] |
+            select(.confidence > 0.8) |
+            "\(.issue_id) \(.suggested_priority)"
+        ' | while read -r issue_id new_priority; do
+            bd update "$issue_id" --priority "$new_priority" --json > /dev/null
+            echo "  ✓ Updated $issue_id to P$new_priority"
+        done
+
+        echo ""
+        echo "Priority updates complete"
+    else
+        echo "✓ No high-confidence priority adjustments needed"
+    fi
+fi
+```
+
+**What confidence scores mean:**
+- **>0.9**: Very strong signal - graph structure clearly indicates misalignment
+- **0.8-0.9**: Strong signal - multiple graph metrics agree
+- **0.6-0.8**: Moderate signal - some evidence of misalignment
+- **<0.6**: Weak signal - human priorities likely correct
+
+**Common recommendation types:**
+
+*Increase Priority (low priority but high structural importance):*
+- **Bottleneck**: Bridges different parts of the graph
+- **Critical path**: On the longest dependency chain
+- **Wide impact**: Blocks many downstream tasks
+- **Foundation**: Connected to other important issues
+
+*Decrease Priority (high priority but low structural importance):*
+- **Leaf node**: Few or no dependents
+- **Not on critical path**: Can be delayed without cascading effects
+- **Isolated**: Completing it doesn't unblock significant work
+
+#### 3. Display Final Graph Summary
+
+Show the overall state of the dependency graph:
+
+```bash
+if bv_available; then
+    echo ""
+    echo "=== Final Graph Summary ==="
+    echo ""
+
+    # Get graph insights
+    INSIGHTS=$(get_graph_insights)
+
+    # Total issue count
+    TOTAL_ISSUES=$(bd list --json | jq '. | length')
+    echo "Total issues created: $TOTAL_ISSUES"
+
+    # Ready work count (unblocked issues)
+    READY_COUNT=$(bd ready --json | jq '. | length')
+    echo "Ready work (unblocked): $READY_COUNT"
+
+    # Show bottlenecks (if any)
+    BOTTLENECKS=$(echo "$INSIGHTS" | jq -r '.bottlenecks[:3] | .[] | .id' 2>/dev/null)
+    if [[ -n "$BOTTLENECKS" && "$BOTTLENECKS" != "" ]]; then
+        echo ""
+        echo "Key bottleneck issues (high impact when completed):"
+        echo "$BOTTLENECKS" | while read -r issue_id; do
+            TITLE=$(bd show "$issue_id" --json | jq -r '.title')
+            echo "  • $issue_id: $TITLE"
+        done
+    fi
+
+    # Show keystones (critical path items)
+    KEYSTONES=$(echo "$INSIGHTS" | jq -r '.keystones[:3] | .[] | .id' 2>/dev/null)
+    if [[ -n "$KEYSTONES" && "$KEYSTONES" != "" ]]; then
+        echo ""
+        echo "Critical path issues (must complete for project completion):"
+        echo "$KEYSTONES" | while read -r issue_id; do
+            TITLE=$(bd show "$issue_id" --json | jq -r '.title')
+            echo "  • $issue_id: $TITLE"
+        done
+    fi
+
+    echo ""
+    echo "✓ Dependency graph validation complete"
+fi
+```
+
+**Important notes:**
+- This validation runs AFTER all issue creation is complete
+- It's a quality check step that catches structural problems early
+- Fails loudly if cycles detected (prevents later deadlocks)
+- Auto-applies high-confidence priority recommendations
+- Should be the last validation before implementation begins
+
 ### OPTIONAL: Start Implementation
 
 If you have time remaining in this session, you may begin implementing

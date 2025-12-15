@@ -35,3 +35,15 @@ BEADS_PROJECT_MARKER = ".beads_project.json"
 
 # Meta issue title for project tracking and session handoff
 META_ISSUE_TITLE = "[META] Project Progress Tracker"
+
+# ================================================
+# BEADS VIEWER (BV) CONFIGURATION
+# ================================================
+
+# Enable Beads Viewer graph intelligence features
+# BV provides execution planning, graph insights, cycle detection
+BV_ENABLED = True
+
+# Fall back to basic bd commands if BV is not available
+# This ensures graceful degradation without hard failures
+BV_FALLBACK_ENABLED = True
