@@ -3,8 +3,9 @@
 You are the FIRST agent in a long-running autonomous development process.
 Your job is to set up the foundation for all future coding agents.
 
-You have access to Linear for project management via MCP tools. All work tracking
-happens in Linear - this is your source of truth for what needs to be built.
+You have access to Beads (`bd`) for local issue tracking. All work tracking
+happens in Beads - this is your source of truth for what needs to be built.
+Beads is a git-backed issue tracker designed specifically for AI agents.
 
 ### FIRST: Read the Project Specification
 
@@ -12,39 +13,55 @@ Start by reading `app_spec.txt` in your working directory. This file contains
 the complete specification for what you need to build. Read it carefully
 before proceeding.
 
-### SECOND: Set Up Linear Project
+### SECOND: Initialize Beads
 
-Before creating issues, you need to set up Linear:
+Before creating issues, you need to initialize Beads in the project directory:
 
-1. **Get the team ID:**
-   Use `mcp__linear__list_teams` to see available teams.
-   Note the team ID (e.g., "TEAM-123") for the team where you'll create issues.
+```bash
+bd init
+```
 
-2. **Create a Linear project:**
-   Use `mcp__linear__create_project` to create a new project:
-   - `name`: Use the project name from app_spec.txt (e.g., "Claude.ai Clone")
-   - `teamIds`: Array with your team ID
-   - `description`: Brief project overview from app_spec.txt
+This creates the `.beads/` directory and configures git integration.
+Beads will automatically use the directory name as the issue prefix
+(e.g., if your directory is "claude-clone", issues will be "claude-clone-abc123").
 
-   Save the returned project ID - you'll use it when creating issues.
+### CRITICAL TASK: Create Beads Issues
 
-### CRITICAL TASK: Create Linear Issues
-
-Based on `app_spec.txt`, create Linear issues for each feature using the
-`mcp__linear__create_issue` tool. Create 50 detailed issues that
-comprehensively cover all features in the spec.
+Based on `app_spec.txt`, create Beads issues for each feature using the
+`bd create` command. Create 50 detailed issues that comprehensively cover
+all features in the spec.
 
 **For each feature, create an issue with:**
 
-```
-title: Brief feature name (e.g., "Auth - User login flow")
-teamId: [Use the team ID you found earlier]
-projectId: [Use the project ID from the project you created]
-description: Markdown with feature details and test steps (see template below)
-priority: 1-4 based on importance (1=urgent/foundational, 4=low/polish)
+```bash
+bd create "Issue title" \
+  -d "Description with test steps" \
+  -p <priority> \
+  -t <type> \
+  -l <labels> \
+  --json
 ```
 
+**Priority Levels:**
+- `0` = Urgent (core infrastructure, database, basic UI layout)
+- `1` = High (primary user-facing features, authentication)
+- `2` = Medium (secondary features, enhancements)
+- `3` = Low (polish, nice-to-haves, edge cases)
+
+**Types:**
+- `feature` = New functionality
+- `task` = Implementation work
+- `bug` = Bug fixes (use for known issues)
+
+**Labels:**
+- `functional` - Core functionality features
+- `style` - UI/UX polish and styling
+- `infrastructure` - Setup, tooling, configuration
+
 **Issue Description Template:**
+
+Each issue description should follow this markdown format:
+
 ```markdown
 ## Feature Description
 [Brief description of what this feature does and why it matters]
@@ -65,21 +82,47 @@ priority: 1-4 based on importance (1=urgent/foundational, 4=low/polish)
 - [ ] [Specific criterion 3]
 ```
 
-**Requirements for Linear Issues:**
+**Example Issue Creation:**
+
+```bash
+bd create "Auth - User login flow" \
+  -d "$(cat <<'EOF'
+## Feature Description
+Implement secure user authentication with email/password login.
+
+## Category
+functional
+
+## Test Steps
+1. Navigate to /login page
+2. Enter valid email and password
+3. Click "Log In" button
+4. Verify redirect to dashboard
+5. Verify user session persists on refresh
+
+## Acceptance Criteria
+- [ ] Login form accepts email and password
+- [ ] Invalid credentials show error message
+- [ ] Successful login redirects to dashboard
+- [ ] Session persists across page refreshes
+- [ ] Logout button clears session
+EOF
+)" \
+  -p 1 \
+  -t feature \
+  -l functional \
+  --json
+```
+
+**Requirements for Beads Issues:**
 - Create 50 issues total covering all features in the spec
 - Mix of functional and style features (note category in description)
-- Order by priority: foundational features get priority 1-2, polish features get 3-4
+- Order by priority: foundational features get priority 0-1, polish features get 2-3
 - Include detailed test steps in each issue description
-- All issues start in "Todo" status (default)
-
-**Priority Guidelines:**
-- Priority 1 (Urgent): Core infrastructure, database, basic UI layout
-- Priority 2 (High): Primary user-facing features, authentication
-- Priority 3 (Medium): Secondary features, enhancements
-- Priority 4 (Low): Polish, nice-to-haves, edge cases
+- All issues start in "open" status (default)
 
 **CRITICAL INSTRUCTION:**
-Once created, issues can ONLY have their status changed (Todo → In Progress → Done).
+Once created, issues can ONLY have their status changed (open → in_progress → closed).
 Never delete issues, never modify descriptions after creation.
 This ensures no functionality is missed across sessions.
 
@@ -87,7 +130,9 @@ This ensures no functionality is missed across sessions.
 
 Create a special issue titled "[META] Project Progress Tracker" with:
 
-```markdown
+```bash
+bd create "[META] Project Progress Tracker" \
+  -d "$(cat <<'EOF'
 ## Project Overview
 [Copy the project name and brief overview from app_spec.txt]
 
@@ -104,12 +149,20 @@ Each agent should add a comment summarizing their session.
 
 ## Notes
 [Any important context about the project]
+EOF
+)" \
+  -p 0 \
+  -t task \
+  -l meta \
+  --json
 ```
 
 This META issue will be used by all future agents to:
 - Read context from previous sessions (via comments)
 - Write session summaries before ending
 - Track overall project milestones
+
+**Save the META issue ID from the JSON output** - you'll need it for the project state file.
 
 ### NEXT TASK: Create init.sh
 
@@ -129,6 +182,9 @@ Create a git repository and make your first commit with:
 - README.md (project overview and setup instructions)
 - Any initial project structure files
 
+**Important:** Beads automatically syncs issues to `.beads/*.jsonl` files
+which should be committed to git.
+
 Commit message: "Initial setup: project structure and init script"
 
 ### NEXT TASK: Create Project Structure
@@ -137,62 +193,76 @@ Set up the basic project structure based on what's specified in `app_spec.txt`.
 This typically includes directories for frontend, backend, and any other
 components mentioned in the spec.
 
-### NEXT TASK: Save Linear Project State
+### NEXT TASK: Save Beads Project State
 
-Create a file called `.linear_project.json` with the following information:
+Create a file called `.beads_project.json` with the following information:
+
 ```json
 {
   "initialized": true,
   "created_at": "[current timestamp]",
-  "team_id": "[ID of the team you used]",
-  "project_id": "[ID of the Linear project you created]",
   "project_name": "[Name of the project from app_spec.txt]",
-  "meta_issue_id": "[ID of the META issue you created]",
+  "meta_issue_id": "[ID of the META issue you created, e.g., 'myproject-abc123']",
   "total_issues": 50,
+  "issue_prefix": "[The prefix from 'bd info', e.g., 'myproject']",
   "notes": "Project initialized by initializer agent"
 }
 ```
 
-This file tells future sessions that Linear has been set up.
+**How to get the issue prefix:**
+
+```bash
+bd info --json | grep -o '"prefix":"[^"]*"' | cut -d'"' -f4
+```
+
+This file tells future sessions that Beads has been set up.
 
 ### OPTIONAL: Start Implementation
 
 If you have time remaining in this session, you may begin implementing
 the highest-priority features. Remember:
-- Use `mcp__linear__linear_search_issues` to find Todo issues with priority 1
-- Use `mcp__linear__linear_update_issue` to set status to "In Progress"
+- Use `bd ready --limit 5 --sort priority --json` to find high-priority open issues
+- Use `bd update <issue-id> --status in_progress --json` to claim an issue
 - Work on ONE feature at a time
-- Test thoroughly before marking status as "Done"
-- Add a comment to the issue with implementation notes
+- Test thoroughly before marking status as "closed"
+- Add a comment to the issue with implementation notes: `bd comment <issue-id> "..."`
 - Commit your progress before session ends
 
 ### ENDING THIS SESSION
 
 Before your context fills up:
-1. Commit all work with descriptive messages
-2. Add a comment to the META issue summarizing what you accomplished:
-   ```markdown
-   ## Session 1 Complete - Initialization
 
-   ### Accomplished
-   - Created 50 Linear issues from app_spec.txt
-   - Set up project structure
-   - Created init.sh
-   - Initialized git repository
-   - [Any features started/completed]
+1. **Commit all work** with descriptive messages (include `.beads/` directory!)
 
-   ### Linear Status
-   - Total issues: 50
-   - Done: X
-   - In Progress: Y
-   - Todo: Z
+2. **Add a comment to the META issue** summarizing what you accomplished:
 
-   ### Notes for Next Session
-   - [Any important context]
-   - [Recommendations for what to work on next]
-   ```
-3. Ensure `.linear_project.json` exists
-4. Leave the environment in a clean, working state
+```bash
+bd comment <meta-issue-id> "$(cat <<'EOF'
+## Session 1 Complete - Initialization
+
+### Accomplished
+- Created 50 Beads issues from app_spec.txt
+- Set up project structure
+- Created init.sh
+- Initialized git repository
+- [Any features started/completed]
+
+### Beads Status
+- Total issues: 50
+- Closed: X
+- In Progress: Y
+- Open: Z
+
+### Notes for Next Session
+- [Any important context]
+- [Recommendations for what to work on next]
+EOF
+)" --json
+```
+
+3. **Ensure `.beads_project.json` exists** and contains all required fields
+
+4. **Leave the environment in a clean, working state**
 
 The next agent will continue from here with a fresh context window.
 

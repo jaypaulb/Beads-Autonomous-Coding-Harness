@@ -47,7 +47,6 @@ Examples:
 
 Environment Variables:
   CLAUDE_CODE_OAUTH_TOKEN    Claude Code OAuth token (required)
-  LINEAR_API_KEY             Linear API key (required)
         """,
     )
 
@@ -85,14 +84,6 @@ def main() -> None:
         print("\nRun 'claude setup-token' after installing the Claude Code CLI.")
         print("\nThen set it:")
         print("  export CLAUDE_CODE_OAUTH_TOKEN='your-token-here'")
-        return
-
-    # Check for Linear API key
-    if not os.environ.get("LINEAR_API_KEY"):
-        print("Error: LINEAR_API_KEY environment variable not set")
-        print("\nGet your API key from: https://linear.app/YOUR-TEAM/settings/api")
-        print("\nThen set it:")
-        print("  export LINEAR_API_KEY='lin_api_xxxxxxxxxxxxx'")
         return
 
     # Automatically place projects in generations/ directory unless already specified

@@ -26,34 +26,6 @@ PUPPETEER_TOOLS = [
     "mcp__puppeteer__puppeteer_evaluate",
 ]
 
-# Linear MCP tools for project management
-# Official Linear MCP server at mcp.linear.app
-LINEAR_TOOLS = [
-    # Team & Project discovery
-    "mcp__linear__list_teams",
-    "mcp__linear__get_team",
-    "mcp__linear__list_projects",
-    "mcp__linear__get_project",
-    "mcp__linear__create_project",
-    "mcp__linear__update_project",
-    # Issue management
-    "mcp__linear__list_issues",
-    "mcp__linear__get_issue",
-    "mcp__linear__create_issue",
-    "mcp__linear__update_issue",
-    "mcp__linear__list_my_issues",
-    # Comments
-    "mcp__linear__list_comments",
-    "mcp__linear__create_comment",
-    # Workflow
-    "mcp__linear__list_issue_statuses",
-    "mcp__linear__get_issue_status",
-    "mcp__linear__list_issue_labels",
-    # Users
-    "mcp__linear__list_users",
-    "mcp__linear__get_user",
-]
-
 # Built-in tools
 BUILTIN_TOOLS = [
     "Read",
@@ -89,13 +61,6 @@ def create_client(project_dir: Path, model: str) -> ClaudeSDKClient:
             "Run 'claude setup-token after installing the Claude Code CLI."
         )
 
-    linear_api_key = os.environ.get("LINEAR_API_KEY")
-    if not linear_api_key:
-        raise ValueError(
-            "LINEAR_API_KEY environment variable not set.\n"
-            "Get your API key from: https://linear.app/YOUR-TEAM/settings/api"
-        )
-
     # Create comprehensive security settings
     # Note: Using relative paths ("./**") restricts access to project directory
     # since cwd is set to project_dir
@@ -115,8 +80,6 @@ def create_client(project_dir: Path, model: str) -> ClaudeSDKClient:
                 "Bash(*)",
                 # Allow Puppeteer MCP tools for browser automation
                 *PUPPETEER_TOOLS,
-                # Allow Linear MCP tools for project management
-                *LINEAR_TOOLS,
             ],
         },
     }
@@ -133,29 +96,20 @@ def create_client(project_dir: Path, model: str) -> ClaudeSDKClient:
     print("   - Sandbox enabled (OS-level bash isolation)")
     print(f"   - Filesystem restricted to: {project_dir.resolve()}")
     print("   - Bash commands restricted to allowlist (see security.py)")
-    print("   - MCP servers: puppeteer (browser automation), linear (project management)")
+    print("   - MCP servers: puppeteer (browser automation)")
+    print("   - Beads (bd) CLI: local issue tracking")
     print()
 
     return ClaudeSDKClient(
         options=ClaudeCodeOptions(
             model=model,
-            system_prompt="You are an expert full-stack developer building a production-quality web application. You use Linear for project management and tracking all your work.",
+            system_prompt="You are an expert full-stack developer building a production-quality web application. You use Beads (bd) for local issue tracking and work management.",
             allowed_tools=[
                 *BUILTIN_TOOLS,
                 *PUPPETEER_TOOLS,
-                *LINEAR_TOOLS,
             ],
             mcp_servers={
                 "puppeteer": {"command": "npx", "args": ["puppeteer-mcp-server"]},
-                # Linear MCP with Streamable HTTP transport (recommended over SSE)
-                # See: https://linear.app/docs/mcp
-                "linear": {
-                    "type": "http",
-                    "url": "https://mcp.linear.app/mcp",
-                    "headers": {
-                        "Authorization": f"Bearer {linear_api_key}"
-                    }
-                }
             },
             hooks={
                 "PreToolUse": [

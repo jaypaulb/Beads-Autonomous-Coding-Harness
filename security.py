@@ -38,6 +38,8 @@ ALLOWED_COMMANDS = {
     "pkill",  # For killing dev servers; validated separately
     # Script execution
     "init.sh",  # Init scripts; validated separately
+    # Beads issue tracker
+    "bd",  # Beads CLI for local issue tracking
 }
 
 # Commands that need additional validation even when in the allowlist

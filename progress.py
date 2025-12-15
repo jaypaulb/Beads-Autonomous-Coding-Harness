@@ -3,26 +3,26 @@ Progress Tracking Utilities
 ===========================
 
 Functions for tracking and displaying progress of the autonomous coding agent.
-Progress is tracked via Linear issues, with local state cached in .linear_project.json.
+Progress is tracked via Beads issues, with local state cached in .beads_project.json.
 """
 
 import json
 from pathlib import Path
 
-from linear_config import LINEAR_PROJECT_MARKER
+from beads_config import BEADS_PROJECT_MARKER
 
 
-def load_linear_project_state(project_dir: Path) -> dict | None:
+def load_beads_project_state(project_dir: Path) -> dict | None:
     """
-    Load the Linear project state from the marker file.
+    Load the Beads project state from the marker file.
 
     Args:
-        project_dir: Directory containing .linear_project.json
+        project_dir: Directory containing .beads_project.json
 
     Returns:
         Project state dict or None if not initialized
     """
-    marker_file = project_dir / LINEAR_PROJECT_MARKER
+    marker_file = project_dir / BEADS_PROJECT_MARKER
 
     if not marker_file.exists():
         return None
@@ -34,17 +34,17 @@ def load_linear_project_state(project_dir: Path) -> dict | None:
         return None
 
 
-def is_linear_initialized(project_dir: Path) -> bool:
+def is_beads_initialized(project_dir: Path) -> bool:
     """
-    Check if Linear project has been initialized.
+    Check if Beads project has been initialized.
 
     Args:
         project_dir: Directory to check
 
     Returns:
-        True if .linear_project.json exists and is valid
+        True if .beads_project.json exists and is valid
     """
-    state = load_linear_project_state(project_dir)
+    state = load_beads_project_state(project_dir)
     return state is not None and state.get("initialized", False)
 
 
@@ -62,20 +62,20 @@ def print_progress_summary(project_dir: Path) -> None:
     """
     Print a summary of current progress.
 
-    Since actual progress is tracked in Linear, this reads the local
-    state file for cached information. The agent updates Linear directly
+    Since actual progress is tracked in Beads, this reads the local
+    state file for cached information. The agent updates Beads directly
     and reports progress in session comments.
     """
-    state = load_linear_project_state(project_dir)
+    state = load_beads_project_state(project_dir)
 
     if state is None:
-        print("\nProgress: Linear project not yet initialized")
+        print("\nProgress: Beads project not yet initialized")
         return
 
     total = state.get("total_issues", 0)
     meta_issue = state.get("meta_issue_id", "unknown")
 
-    print(f"\nLinear Project Status:")
+    print(f"\nBeads Project Status:")
     print(f"  Total issues created: {total}")
     print(f"  META issue ID: {meta_issue}")
-    print(f"  (Check Linear for current Done/In Progress/Todo counts)")
+    print(f"  (Run 'bd info' for current issue counts)")

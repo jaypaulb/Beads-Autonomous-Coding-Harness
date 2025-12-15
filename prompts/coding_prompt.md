@@ -3,8 +3,9 @@
 You are continuing work on a long-running autonomous development task.
 This is a FRESH context window - you have no memory of previous sessions.
 
-You have access to Linear for project management via MCP tools. Linear is your
+You have access to Beads (`bd`) for local issue tracking. Beads is your
 single source of truth for what needs to be built and what's been completed.
+All issues are stored locally in `.beads/*.jsonl` files and tracked in git.
 
 ### STEP 1: GET YOUR BEARINGS (MANDATORY)
 
@@ -20,34 +21,56 @@ ls -la
 # 3. Read the project specification to understand what you're building
 cat app_spec.txt
 
-# 4. Read the Linear project state
-cat .linear_project.json
+# 4. Read the Beads project state
+cat .beads_project.json
 
 # 5. Check recent git history
 git log --oneline -20
+
+# 6. View Beads info (issue prefix, database location)
+bd info
 ```
 
 Understanding the `app_spec.txt` is critical - it contains the full requirements
 for the application you're building.
 
-### STEP 2: CHECK LINEAR STATUS
+### STEP 2: CHECK BEADS STATUS
 
-Query Linear to understand current project state. The `.linear_project.json` file
-contains the `project_id` and `team_id` you should use for all Linear queries.
+Query Beads to understand current project state. All commands support `--json` for
+programmatic parsing.
 
 1. **Find the META issue** for session context:
-   Use `mcp__linear__list_issues` with the project ID from `.linear_project.json`
-   and search for "[META] Project Progress Tracker".
-   Read the issue description and recent comments for context from previous sessions.
+   ```bash
+   # List all issues with 'meta' label
+   bd list --label meta --json
+   ```
+   Read the META issue description and recent comments for context from previous sessions:
+   ```bash
+   # View META issue details
+   bd show <meta-issue-id>
+
+   # View comments on META issue
+   bd comments list <meta-issue-id>
+   ```
 
 2. **Count progress:**
-   Use `mcp__linear__list_issues` with the project ID to get all issues, then count:
-   - Issues with status "Done" = completed
-   - Issues with status "Todo" = remaining
-   - Issues with status "In Progress" = currently being worked on
+   ```bash
+   # Count closed issues
+   bd list --status closed --json | jq 'length'
+
+   # Count open issues
+   bd list --status open --json | jq 'length'
+
+   # Count in-progress issues
+   bd list --status in_progress --json | jq 'length'
+   ```
 
 3. **Check for in-progress work:**
-   If any issue is "In Progress", that should be your first priority.
+   ```bash
+   # Find any issues currently in progress
+   bd list --status in_progress --json
+   ```
+   If any issue is "in_progress", that should be your first priority.
    A previous session may have been interrupted.
 
 ### STEP 3: START SERVERS (IF NOT RUNNING)
@@ -67,8 +90,12 @@ Otherwise, start servers manually and document the process.
 The previous session may have introduced bugs. Before implementing anything
 new, you MUST run verification tests.
 
-Use `mcp__linear__list_issues` with the project ID and status "Done" to find 1-2
-completed features that are core to the app's functionality.
+Find 1-2 completed features that are core to the app's functionality:
+
+```bash
+# Get recently closed issues
+bd list --status closed --limit 2 --json
+```
 
 Test these through the browser using Puppeteer:
 - Navigate to the feature
@@ -76,37 +103,59 @@ Test these through the browser using Puppeteer:
 - Take screenshots to confirm
 
 **If you find ANY issues (functional or visual):**
-- Use `mcp__linear__update_issue` to set status back to "In Progress"
-- Add a comment explaining what broke
-- Fix the issue BEFORE moving to new features
-- This includes UI bugs like:
-  * White-on-white text or poor contrast
-  * Random characters displayed
-  * Incorrect timestamps
-  * Layout issues or overflow
-  * Buttons too close together
-  * Missing hover states
-  * Console errors
+```bash
+# Reopen the issue
+bd update <issue-id> --status in_progress --json
+
+# Add a comment explaining what broke
+bd comment <issue-id> "Found regression: [describe the problem]" --json
+```
+
+Fix the issue BEFORE moving to new features. This includes UI bugs like:
+- White-on-white text or poor contrast
+- Random characters displayed
+- Incorrect timestamps
+- Layout issues or overflow
+- Buttons too close together
+- Missing hover states
+- Console errors
 
 ### STEP 5: SELECT NEXT ISSUE TO WORK ON
 
-Use `mcp__linear__list_issues` with the project ID from `.linear_project.json`:
-- Filter by `status`: "Todo"
-- Sort by priority (1=urgent is highest)
-- `limit`: 5
+Use Beads' built-in "ready work" detection to find high-priority issues
+with no blockers:
+
+```bash
+# Find ready work (open issues with no blockers)
+bd ready --limit 5 --sort priority --json
+```
+
+This automatically filters for:
+- Issues with status "open"
+- No blocking dependencies
+- Sorted by priority (0=urgent first)
 
 Review the highest-priority unstarted issues and select ONE to work on.
 
 ### STEP 6: CLAIM THE ISSUE
 
-Before starting work, use `mcp__linear__update_issue` to:
-- Set the issue's `status` to "In Progress"
+Before starting work, update the issue status:
+
+```bash
+# Mark issue as in progress
+bd update <issue-id> --status in_progress --json
+```
 
 This signals to any other agents (or humans watching) that this issue is being worked on.
 
 ### STEP 7: IMPLEMENT THE FEATURE
 
 Read the issue description for test steps and implement accordingly:
+
+```bash
+# View full issue details including description and test steps
+bd show <issue-id>
+```
 
 1. Write the code (frontend and/or backend as needed)
 2. Test manually using browser automation (see Step 8)
@@ -135,31 +184,36 @@ Use browser automation tools:
 - Skip visual verification
 - Mark issues Done without thorough verification
 
-### STEP 9: UPDATE LINEAR ISSUE (CAREFULLY!)
+### STEP 9: UPDATE BEADS ISSUE (CAREFULLY!)
 
 After thorough verification:
 
-1. **Add implementation comment** using `mcp__linear__create_comment`:
-   ```markdown
-   ## Implementation Complete
+1. **Add implementation comment:**
+   ```bash
+   bd comment <issue-id> "$(cat <<'EOF'
+## Implementation Complete
 
-   ### Changes Made
-   - [List of files changed]
-   - [Key implementation details]
+### Changes Made
+- [List of files changed]
+- [Key implementation details]
 
-   ### Verification
-   - Tested via Puppeteer browser automation
-   - Screenshots captured
-   - All test steps from issue description verified
+### Verification
+- Tested via Puppeteer browser automation
+- Screenshots captured
+- All test steps from issue description verified
 
-   ### Git Commit
-   [commit hash and message]
+### Git Commit
+[commit hash and message]
+EOF
+)" --json
    ```
 
-2. **Update status** using `mcp__linear__update_issue`:
-   - Set `status` to "Done"
+2. **Update status to closed:**
+   ```bash
+   bd update <issue-id> --status closed --json
+   ```
 
-**ONLY update status to Done AFTER:**
+**ONLY update status to closed AFTER:**
 - All test steps in the issue description pass
 - Visual verification via screenshots
 - No console errors
@@ -168,30 +222,39 @@ After thorough verification:
 ### STEP 10: COMMIT YOUR PROGRESS
 
 Make a descriptive git commit:
+
 ```bash
 git add .
 git commit -m "Implement [feature name]
 
 - Added [specific changes]
 - Tested with browser automation
-- Linear issue: [issue identifier]
+- Beads issue: [issue identifier]
 "
 ```
 
+**Important:** Beads automatically syncs issue state to `.beads/*.jsonl` files.
+These changes are committed with your code, providing a complete audit trail.
+
 ### STEP 11: UPDATE META ISSUE
 
-Add a comment to the "[META] Project Progress Tracker" issue with session summary:
+Add a comment to the META issue with session summary:
 
-```markdown
+```bash
+# First, get the META issue ID from .beads_project.json
+META_ID=$(cat .beads_project.json | jq -r '.meta_issue_id')
+
+# Add session summary comment
+bd comment $META_ID "$(cat <<'EOF'
 ## Session Complete - [Brief description]
 
 ### Completed This Session
 - [Issue title]: [Brief summary of implementation]
 
 ### Current Progress
-- X issues Done
+- X issues Closed
 - Y issues In Progress
-- Z issues remaining in Todo
+- Z issues remaining in Open
 
 ### Verification Status
 - Ran verification tests on [feature names]
@@ -201,27 +264,30 @@ Add a comment to the "[META] Project Progress Tracker" issue with session summar
 - [Any important context]
 - [Recommendations for what to work on next]
 - [Any blockers or concerns]
+EOF
+)" --json
 ```
 
 ### STEP 12: END SESSION CLEANLY
 
 Before context fills up:
-1. Commit all working code
+
+1. **Commit all working code** (including `.beads/` directory!)
 2. If working on an issue you can't complete:
    - Add a comment explaining progress and what's left
-   - Keep status as "In Progress" (don't revert to Todo)
+   - Keep status as "in_progress" (don't revert to open)
 3. Update META issue with session summary
 4. Ensure no uncommitted changes
 5. Leave app in working state (no broken features)
 
 ---
 
-## LINEAR WORKFLOW RULES
+## BEADS WORKFLOW RULES
 
 **Status Transitions:**
-- Todo → In Progress (when you start working)
-- In Progress → Done (when verified complete)
-- Done → In Progress (only if regression found)
+- `open` → `in_progress` (when you start working)
+- `in_progress` → `closed` (when verified complete)
+- `closed` → `in_progress` (only if regression found)
 
 **Comments Are Your Memory:**
 - Every implementation gets a detailed comment
@@ -229,11 +295,23 @@ Before context fills up:
 - Comments are permanent - future agents will read them
 
 **NEVER:**
-- Delete or archive issues
+- Delete or archive issues (use `bd delete` only for mistakes)
 - Modify issue descriptions or test steps
-- Work on issues already "In Progress" by someone else
-- Mark "Done" without verification
-- Leave issues "In Progress" when switching to another issue
+- Work on issues already "in_progress" by someone else
+- Mark "closed" without verification
+- Leave issues "in_progress" when switching to another issue
+
+**Dependencies (Advanced):**
+Beads supports dependency management:
+```bash
+# Mark issue-2 as blocked by issue-1
+bd dep add <issue-2> <issue-1> --type blocks
+
+# View dependency tree
+bd dep tree <issue-id>
+```
+
+Use this sparingly - `bd ready` automatically finds issues with no blockers.
 
 ---
 
@@ -259,12 +337,12 @@ Test like a human user with mouse and keyboard. Don't take shortcuts.
 
 This depends on the project phase:
 
-**Early phase (< 20% Done):** You may complete multiple issues per session when:
+**Early phase (< 20% Closed):** You may complete multiple issues per session when:
 - Setting up infrastructure/scaffolding that unlocks many issues at once
 - Fixing build issues that were blocking progress
-- Auditing existing code and marking already-implemented features as Done
+- Auditing existing code and marking already-implemented features as Closed
 
-**Mid/Late phase (> 20% Done):** Slow down to **1-2 issues per session**:
+**Mid/Late phase (> 20% Closed):** Slow down to **1-2 issues per session**:
 - Each feature now requires focused implementation and testing
 - Quality matters more than quantity
 - Clean handoffs are critical
@@ -284,7 +362,7 @@ than to start another issue and risk running out of context mid-implementation.
 
 ## IMPORTANT REMINDERS
 
-**Your Goal:** Production-quality application with all Linear issues Done
+**Your Goal:** Production-quality application with all Beads issues Closed
 
 **This Session's Goal:** Make meaningful progress with clean handoff
 
@@ -298,6 +376,10 @@ than to start another issue and risk running out of context mid-implementation.
 
 **Context is finite.** You cannot monitor your context usage, so err on the side
 of ending sessions early with good handoff notes. The next agent will continue.
+
+**Git integration:** Beads automatically syncs issue state to `.beads/*.jsonl` files.
+Every `git commit` includes the current state of all issues, providing a complete
+audit trail of what was implemented when.
 
 ---
 
