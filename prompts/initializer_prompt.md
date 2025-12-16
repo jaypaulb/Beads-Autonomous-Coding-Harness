@@ -21,9 +21,14 @@ cat /home/jaypaulb/Projects/gh/Linear-Coding-Agent-Harness/agent-os/product/road
 cat /home/jaypaulb/Projects/gh/Linear-Coding-Agent-Harness/agent-os/product/tech-stack.md
 ```
 
-The **roadmap.md** is your primary source. Each numbered item is a work unit:
-- `[x]` = Spec complete (may need implementation issues)
-- `[ ]` = Pending (definitely needs issues)
+The **roadmap.md** is your primary source. Each numbered item is a work unit.
+
+**IMPORTANT - Understanding Status Markers:**
+- `[x] ... **[Spec Complete]**` = Specification is WRITTEN, but code is NOT implemented yet
+- `[ ]` = Neither specification nor implementation exists
+
+**ALL items need Beads issues** - both `[x]` and `[ ]` items require implementation work.
+The `[x]` just means the technical design is documented in the "Technical Notes" sections.
 
 ### STEP 2: Check Existing Beads State
 
@@ -79,7 +84,11 @@ Item [N] from roadmap.md
 [Copy the item description and bullet points from roadmap.md]
 
 ## Technical Notes
-[Copy relevant technical notes section if exists]
+[For [x] items: Copy the detailed "Technical Notes (Phase X Spec)" section]
+[For [ ] items: Note that implementation details need to be determined]
+
+## File Locations
+[Copy the "File Locations" table from technical notes if available]
 
 ## Acceptance Criteria
 - [ ] Implementation matches roadmap specification
@@ -89,9 +98,17 @@ EOF
 )" \
   -p <priority> \
   -t feature \
-  -l phase-X \
+  -l "phase-X,has-spec" \
   --json
 ```
+
+**Note:** For `[x]` items, the roadmap contains detailed technical notes including:
+- Key decisions made during specification
+- Function signatures and class structures
+- Integration points with other components
+- File locations for implementation
+
+Copy this information into the issue description - it's the implementation blueprint.
 
 **Priority Mapping:**
 - Size `S` (Small) = Priority 3
@@ -101,8 +118,8 @@ EOF
 
 **Labels:**
 - `phase-1` through `phase-5` based on roadmap section
-- `spec-complete` for `[x]` items that need implementation
-- `pending-spec` for `[ ]` items
+- `has-spec` for `[x]` items - detailed technical notes exist in roadmap.md
+- `needs-spec` for `[ ]` items - implementation details need to be figured out
 
 ### STEP 5: Set Up Dependencies
 
