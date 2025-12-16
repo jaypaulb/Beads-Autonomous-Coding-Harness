@@ -12,13 +12,13 @@ Read the product planning documents to understand what needs to be built:
 
 ```bash
 # Project mission and goals
-cat /home/jaypaulb/Projects/gh/Linear-Coding-Agent-Harness/agent-os/product/mission.md
+cat agent-os/product/mission.md
 
 # Roadmap with all work items
-cat /home/jaypaulb/Projects/gh/Linear-Coding-Agent-Harness/agent-os/product/roadmap.md
+cat agent-os/product/roadmap.md
 
 # Technology stack and conventions
-cat /home/jaypaulb/Projects/gh/Linear-Coding-Agent-Harness/agent-os/product/tech-stack.md
+cat agent-os/product/tech-stack.md
 ```
 
 The **roadmap.md** is your primary source. Each numbered item is a work unit.

@@ -93,6 +93,9 @@ def main() -> None:
         if project_dir.is_absolute():
             # If absolute path, use as-is
             pass
+        elif str(project_dir) in (".", "./"):
+            # Current directory - use as-is
+            project_dir = Path.cwd()
         else:
             # Prepend generations/ to relative paths
             project_dir = Path("generations") / project_dir

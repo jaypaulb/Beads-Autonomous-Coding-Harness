@@ -37,7 +37,7 @@ ls -la
 cat app_spec.txt
 
 # 4. Read the Beads project state (root-level single database)
-cat /home/jaypaulb/Projects/gh/Linear-Coding-Agent-Harness/.beads_project.json
+cat .beads_project.json
 
 # 5. Check recent git history
 git log --oneline -20
@@ -70,7 +70,7 @@ that `bd` cannot. Only fall back to `bd` for mutations (update, close, comment).
 3. **Find the META issue** for session context:
    ```bash
    # Get META issue ID from root-level project config
-   cat /home/jaypaulb/Projects/gh/Linear-Coding-Agent-Harness/.beads_project.json | jq -r '.meta_issue_id'
+   cat .beads_project.json | jq -r '.meta_issue_id'
 
    # View META issue details and comments
    bd show <meta-issue-id>
@@ -342,7 +342,7 @@ Add a detailed comment to the META issue with session summary:
 
 ```bash
 # Get META issue ID from root-level config
-META_ID=$(cat /home/jaypaulb/Projects/gh/Linear-Coding-Agent-Harness/.beads_project.json | jq -r '.meta_issue_id')
+META_ID=$(cat .beads_project.json | jq -r '.meta_issue_id')
 
 # Add comprehensive session comment
 bd comment $META_ID "$(cat <<'EOF'
