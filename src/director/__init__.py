@@ -3,7 +3,8 @@ Director Module
 ===============
 
 Utilities for the Project Development Director including path handling,
-command execution, working directory safety, and async timeout handling.
+command execution, working directory safety, async timeout handling,
+and git conflict resolution.
 """
 
 from .utils import (
@@ -27,6 +28,13 @@ from .timeout_organisms import (
     TimeoutResult,
 )
 
+from .conflict_handler import (
+    MergeStatus,
+    MergeResult,
+    attempt_automatic_merge,
+    detect_merge_conflicts,
+)
+
 __all__ = [
     # Path utilities
     "resolve_absolute_path",
@@ -43,4 +51,9 @@ __all__ = [
     "run_with_timeout_and_cancel",
     "TimeoutError",
     "TimeoutResult",
+    # Conflict handling (molecules)
+    "MergeStatus",
+    "MergeResult",
+    "attempt_automatic_merge",
+    "detect_merge_conflicts",
 ]
