@@ -23,10 +23,21 @@ ALLOWED_COMMANDS = {
     "find",
     # File operations (agent uses SDK tools for most file ops, but cp/mkdir needed occasionally)
     "cp",
+    "mv",
+    "rm",
     "mkdir",
     "chmod",  # For making scripts executable; validated separately
     # Directory
     "pwd",
+    # Go development
+    "go",  # build, run, test, mod, get, fmt, vet, etc.
+    "gofmt",  # Code formatting
+    "goimports",  # Formatting + imports
+    "golangci-lint",  # Linter
+    "staticcheck",  # Static analysis
+    "goreleaser",  # Release automation
+    # Build tools
+    "make",  # Makefiles common in Go projects
     # Node.js development
     "npm",
     "node",
@@ -42,6 +53,18 @@ ALLOWED_COMMANDS = {
     "jq",
     "true",
     "false",
+    "which",
+    "env",
+    "export",
+    "source",
+    "test",
+    "[",  # test alias
+    # Archive/packaging (for cross-compiled binaries)
+    "tar",
+    "zip",
+    "unzip",
+    "gzip",
+    "gunzip",
     # Version control
     "git",
     # Process management
@@ -185,16 +208,23 @@ def validate_pkill_command(command_string: str) -> tuple[bool, str]:
     """
     # Allowed process names for pkill
     allowed_process_names = {
+        # Node.js
         "node",
         "npm",
         "npx",
         "vite",
         "next",
+        # Python
         "python",
         "python3",
         "pytest",
         "uvicorn",
         "gunicorn",
+        # Go
+        "go",
+        "dlv",  # Delve debugger
+        "air",  # Hot reload for Go
+        "gopls",  # Go language server
     }
 
     try:
