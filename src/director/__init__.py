@@ -4,7 +4,7 @@ Director Module
 
 Utilities for the Project Development Director including path handling,
 command execution, working directory safety, async timeout handling,
-git conflict resolution, and BV robot plan querying.
+git conflict resolution, BV robot plan querying, and metrics persistence.
 """
 
 from .utils import (
@@ -41,6 +41,18 @@ from .bv_robot_plan import (
     parse_bv_plan_output,
 )
 
+from .cwd_guard import (
+    WorkingDirectoryGuard,
+    validate_cwd,
+)
+
+from .metrics_molecules import (
+    MetricsData,
+    save_metrics,
+    load_metrics,
+    append_metrics,
+)
+
 __all__ = [
     # Path utilities
     "resolve_absolute_path",
@@ -66,4 +78,12 @@ __all__ = [
     "BVRobotPlan",
     "query_bv_robot_plan",
     "parse_bv_plan_output",
+    # CWD guard (molecules)
+    "WorkingDirectoryGuard",
+    "validate_cwd",
+    # Metrics persistence (molecules)
+    "MetricsData",
+    "save_metrics",
+    "load_metrics",
+    "append_metrics",
 ]
