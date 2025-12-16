@@ -106,6 +106,25 @@ class TestSaveMetrics:
         assert result is True
         assert nested_file.exists()
 
+    def test_saves_empty_metrics_list(self, tmp_path: Path):
+        """save_metrics() handles empty metrics list correctly."""
+        # Arrange
+        metrics_file = tmp_path / "empty_metrics.json"
+        metrics_list = []
+
+        # Act
+        result = save_metrics(metrics_list, metrics_file)
+
+        # Assert
+        assert result is True
+        assert metrics_file.exists()
+
+        # Verify JSON content is empty array
+        with open(metrics_file, "r") as f:
+            data = json.load(f)
+
+        assert data == []
+
 
 class TestLoadMetrics:
     """Tests for load_metrics() molecule."""
@@ -161,6 +180,19 @@ class TestLoadMetrics:
 
         # Assert
         assert result is None
+
+    def test_loads_empty_metrics_list(self, tmp_path: Path):
+        """load_metrics() returns empty list for file containing empty array."""
+        # Arrange
+        metrics_file = tmp_path / "empty.json"
+        metrics_file.write_text("[]")
+
+        # Act
+        result = load_metrics(metrics_file)
+
+        # Assert
+        assert result is not None
+        assert result == []
 
 
 class TestAppendMetrics:
@@ -226,3 +258,28 @@ class TestAppendMetrics:
         assert loaded is not None
         assert len(loaded) == 1
         assert loaded[0].issue_id == "bd-500"
+
+    def test_append_to_corrupted_file_creates_fresh_list(self, tmp_path: Path):
+        """append_metrics() handles corrupted file by starting fresh list."""
+        # Arrange: Create corrupted metrics file
+        corrupted_file = tmp_path / "corrupted_metrics.json"
+        corrupted_file.write_text("{ not valid json array }")
+
+        new_entry = MetricsData(
+            start_time="2025-12-16T10:00:00",
+            end_time="2025-12-16T10:05:00",
+            duration=300.0,
+            status="success",
+            agent_type="atom-writer",
+            issue_id="bd-600",
+        )
+
+        # Act
+        result = append_metrics(new_entry, corrupted_file)
+
+        # Assert: Should succeed by creating fresh list with new entry
+        assert result is True
+        loaded = load_metrics(corrupted_file)
+        assert loaded is not None
+        assert len(loaded) == 1
+        assert loaded[0].issue_id == "bd-600"

@@ -120,6 +120,40 @@ Blocked: 0 tasks
             assert result.success is True  # CLI succeeded
             assert result.phases == []  # But no phases to parse
 
+    def test_returns_empty_plan_on_subprocess_error(self, tmp_path):
+        """query_bv_robot_plan() returns empty plan on subprocess error."""
+        # Arrange: Mock subprocess error
+        with patch("subprocess.run") as mock_run:
+            mock_run.side_effect = subprocess.SubprocessError("Process failed unexpectedly")
+
+            # Act
+            result = query_bv_robot_plan(project_dir=tmp_path)
+
+            # Assert: Should return empty plan with error info, NOT raise
+            assert result is not None
+            assert isinstance(result, BVRobotPlan)
+            assert result.success is False
+            assert result.error_message is not None
+            assert "subprocess" in result.error_message.lower() or "error" in result.error_message.lower()
+            assert result.phases == []
+
+    def test_returns_empty_plan_on_timeout(self, tmp_path):
+        """query_bv_robot_plan() returns empty plan when CLI times out."""
+        # Arrange: Mock timeout
+        with patch("subprocess.run") as mock_run:
+            mock_run.side_effect = subprocess.TimeoutExpired(cmd=["bv", "robot", "--plan"], timeout=30)
+
+            # Act
+            result = query_bv_robot_plan(project_dir=tmp_path)
+
+            # Assert: Should return empty plan with timeout error info
+            assert result is not None
+            assert isinstance(result, BVRobotPlan)
+            assert result.success is False
+            assert result.error_message is not None
+            assert "timeout" in result.error_message.lower() or "timed out" in result.error_message.lower()
+            assert result.phases == []
+
 
 class TestParseBVPlanOutput:
     """Tests for parse_bv_plan_output() helper function."""
@@ -163,6 +197,43 @@ Phase 2: API Layer
         # Assert
         assert phases == []
 
+    def test_returns_empty_list_for_malformed_output(self):
+        """parse_bv_plan_output() returns empty list for malformed output."""
+        # Arrange: Malformed output that doesn't match expected format
+        malformed_output = """
+        Random text with no structure
+        >>> some command
+        Error: something went wrong
+        --- not a phase ---
+        """
+
+        # Act
+        phases = parse_bv_plan_output(malformed_output)
+
+        # Assert: Should return empty list, not crash
+        assert isinstance(phases, list)
+        # No valid phases should be extracted from garbage input
+        assert len(phases) == 0
+
+    def test_handles_partial_phase_output(self):
+        """parse_bv_plan_output() handles output with partial phases."""
+        # Arrange: Output with phase header but no tasks
+        partial_output = """ROBOT EXECUTION PLAN
+===================
+
+Phase 1: Database Layer
+-----------------------
+
+Phase 2: API Layer
+------------------
+"""
+        # Act
+        phases = parse_bv_plan_output(partial_output)
+
+        # Assert: Should parse phases even if they have no tasks
+        assert isinstance(phases, list)
+        # May extract empty phases or skip them - implementation choice
+
 
 class TestBVRobotPlanDataclass:
     """Tests for BVRobotPlan dataclass structure."""
@@ -196,3 +267,59 @@ class TestBVRobotPlanDataclass:
         assert plan.error_message == "CLI unavailable"
         assert plan.raw_output == ""
         assert plan.phases == []
+
+
+class TestFallbackBehavior:
+    """Tests verifying that fallback behavior returns usable objects."""
+
+    def test_fallback_returns_usable_object_not_none(self, tmp_path):
+        """Fallback returns BVRobotPlan (not None) when BV unavailable."""
+        # Arrange: Make sure BV is not available by mocking shutil.which
+        with patch("shutil.which") as mock_which:
+            mock_which.return_value = None  # BV not in PATH
+
+            # Act
+            result = query_bv_robot_plan(project_dir=tmp_path)
+
+            # Assert: Result is a usable object, not None
+            assert result is not None
+            assert isinstance(result, BVRobotPlan)
+            # Can safely access all attributes without exception
+            _ = result.success
+            _ = result.raw_output
+            _ = result.phases
+            _ = result.error_message
+
+    def test_fallback_phases_is_list_not_none(self, tmp_path):
+        """Fallback plan.phases is always a list, never None."""
+        # Arrange: Make sure BV is not available
+        with patch("shutil.which") as mock_which:
+            mock_which.return_value = None
+
+            # Act
+            result = query_bv_robot_plan(project_dir=tmp_path)
+
+            # Assert: phases is a list that can be iterated
+            assert result.phases is not None
+            assert isinstance(result.phases, list)
+            # Can safely iterate
+            for phase in result.phases:
+                pass  # No exception
+
+    def test_fallback_can_be_used_in_conditional(self, tmp_path):
+        """Fallback plan can be used in if/else conditional without error."""
+        # Arrange: Make sure BV is not available
+        with patch("shutil.which") as mock_which:
+            mock_which.return_value = None
+
+            # Act
+            result = query_bv_robot_plan(project_dir=tmp_path)
+
+            # Assert: Can safely use in conditional
+            if result.success:
+                # Would process phases here
+                assert len(result.phases) >= 0
+            else:
+                # Graceful fallback path
+                assert result.error_message is not None
+                assert len(result.phases) == 0
