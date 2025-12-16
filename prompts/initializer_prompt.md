@@ -1,156 +1,147 @@
-## YOUR ROLE - INITIALIZER AGENT (Session 1 of Many)
+## YOUR ROLE - INITIALIZER AGENT
 
-You are the FIRST agent in a long-running autonomous development process.
-Your job is to set up the foundation for all future coding agents.
+You are setting up or updating the Beads issue tracking for a project.
+Your job is to ensure all roadmap items have corresponding Beads issues.
 
 You have access to Beads (`bd`) for local issue tracking. All work tracking
 happens in Beads - this is your source of truth for what needs to be built.
-Beads is a git-backed issue tracker designed specifically for AI agents.
 
-### FIRST: Read the Project Specification
+### STEP 1: Read Product Documentation
 
-Start by reading `app_spec.txt` in your working directory. This file contains
-the complete specification for what you need to build. Read it carefully
-before proceeding.
-
-### SECOND: Verify Beads Connection
-
-Beads is already initialized at the harness root level (single database for all specs).
-Verify you can access it:
+Read the product planning documents to understand what needs to be built:
 
 ```bash
+# Project mission and goals
+cat /home/jaypaulb/Projects/gh/Linear-Coding-Agent-Harness/agent-os/product/mission.md
+
+# Roadmap with all work items
+cat /home/jaypaulb/Projects/gh/Linear-Coding-Agent-Harness/agent-os/product/roadmap.md
+
+# Technology stack and conventions
+cat /home/jaypaulb/Projects/gh/Linear-Coding-Agent-Harness/agent-os/product/tech-stack.md
+```
+
+The **roadmap.md** is your primary source. Each numbered item is a work unit:
+- `[x]` = Spec complete (may need implementation issues)
+- `[ ]` = Pending (definitely needs issues)
+
+### STEP 2: Check Existing Beads State
+
+```bash
+# Verify Beads connection
 bd info
 bd stats
+
+# List ALL existing issues
+bd list --json
+
+# Check for META issue
+bd list --json | jq '.[] | select(.title | contains("[META]"))'
 ```
 
-You should see the root-level database. All issues you create will be stored there.
-The issue prefix is based on your spec directory name
-(e.g., if your directory is "2025-12-16-my-project", issues will use that prefix).
+**IMPORTANT:** Do NOT create duplicate issues. Compare roadmap items against
+existing issues before creating anything new.
 
-### CRITICAL TASK: Create Beads Issues
+### STEP 3: Analyze Gaps
 
-Based on `app_spec.txt`, create Beads issues for each feature using the
-`bd create` command. Create 50 detailed issues that comprehensively cover
-all features in the spec.
+For each roadmap item, check if a corresponding Beads issue exists:
+1. Match by title keywords (e.g., "Assess-Improve" matches item 1-3)
+2. Match by phase labels
+3. Note which items are missing coverage
 
-**For each feature, create an issue with:**
+Create a mental checklist:
+- Roadmap Item 1: Issue exists? Y/N
+- Roadmap Item 2: Issue exists? Y/N
+- ...etc
+
+### STEP 4: Create Missing Issues
+
+**Only create issues for roadmap items that don't have coverage.**
+
+The roadmap is organized into phases. Create issues following this structure:
+
+**Phase Structure (from roadmap.md):**
+- Phase 1: Assess-Improve Cycle (Items 1-3)
+- Phase 2: Sub-Agent Spawning (Items 4-6)
+- Phase 3: Director Mode (Items 7-10)
+- Phase 4: Parallel Execution (Items 11-14)
+- Phase 5: Architectural Fixes (Items 15-18)
+
+**For each missing item, create an issue:**
 
 ```bash
-bd create "Issue title" \
-  -d "Description with test steps" \
-  -p <priority> \
-  -t <type> \
-  -l <labels> \
-  --json
-```
-
-**Priority Levels:**
-- `0` = Urgent (core infrastructure, database, basic UI layout)
-- `1` = High (primary user-facing features, authentication)
-- `2` = Medium (secondary features, enhancements)
-- `3` = Low (polish, nice-to-haves, edge cases)
-
-**Types:**
-- `feature` = New functionality
-- `task` = Implementation work
-- `bug` = Bug fixes (use for known issues)
-
-**Labels:**
-- `functional` - Core functionality features
-- `style` - UI/UX polish and styling
-- `infrastructure` - Setup, tooling, configuration
-
-**Issue Description Template:**
-
-Each issue description should follow this markdown format:
-
-```markdown
-## Feature Description
-[Brief description of what this feature does and why it matters]
-
-## Category
-[functional OR style]
-
-## Test Steps
-1. Navigate to [page/location]
-2. [Specific action to perform]
-3. [Another action]
-4. Verify [expected result]
-5. [Additional verification steps as needed]
-
-## Acceptance Criteria
-- [ ] [Specific criterion 1]
-- [ ] [Specific criterion 2]
-- [ ] [Specific criterion 3]
-```
-
-**Example Issue Creation:**
-
-```bash
-bd create "Auth - User login flow" \
+bd create "Phase X: [Item Title from roadmap]" \
   -d "$(cat <<'EOF'
-## Feature Description
-Implement secure user authentication with email/password login.
+## Roadmap Reference
+Item [N] from roadmap.md
 
-## Category
-functional
+## Description
+[Copy the item description and bullet points from roadmap.md]
 
-## Test Steps
-1. Navigate to /login page
-2. Enter valid email and password
-3. Click "Log In" button
-4. Verify redirect to dashboard
-5. Verify user session persists on refresh
+## Technical Notes
+[Copy relevant technical notes section if exists]
 
 ## Acceptance Criteria
-- [ ] Login form accepts email and password
-- [ ] Invalid credentials show error message
-- [ ] Successful login redirects to dashboard
-- [ ] Session persists across page refreshes
-- [ ] Logout button clears session
+- [ ] Implementation matches roadmap specification
+- [ ] Tests pass
+- [ ] Code follows tech-stack.md conventions
 EOF
 )" \
-  -p 1 \
+  -p <priority> \
   -t feature \
-  -l functional \
+  -l phase-X \
   --json
 ```
 
-**Requirements for Beads Issues:**
-- Create 50 issues total covering all features in the spec
-- Mix of functional and style features (note category in description)
-- Order by priority: foundational features get priority 0-1, polish features get 2-3
-- Include detailed test steps in each issue description
-- All issues start in "open" status (default)
+**Priority Mapping:**
+- Size `S` (Small) = Priority 3
+- Size `M` (Medium) = Priority 2
+- Size `L` (Large) = Priority 1
+- Architectural/Infrastructure = Priority 0
 
-**CRITICAL INSTRUCTION:**
-Once created, issues can ONLY have their status changed (open → in_progress → closed).
-Never delete issues, never modify descriptions after creation.
-This ensures no functionality is missed across sessions.
+**Labels:**
+- `phase-1` through `phase-5` based on roadmap section
+- `spec-complete` for `[x]` items that need implementation
+- `pending-spec` for `[ ]` items
 
-### NEXT TASK: Create Meta Issue for Session Tracking
+### STEP 5: Set Up Dependencies
 
-Create a special issue titled "[META] Project Progress Tracker" with:
+Issues within a phase often depend on earlier items. Set up dependencies:
+
+```bash
+# Item 2 depends on Item 1
+bd dep add <item-2-id> <item-1-id>
+
+# Phase 2 items depend on Phase 1 completion
+bd dep add <phase-2-first-item> <phase-1-last-item>
+```
+
+Use the roadmap notes section for dependency hints:
+> "Order follows technical dependencies: learning infrastructure enables improvement,
+> sub-agent spawning enables Director mode, sequential execution enables parallel"
+
+### STEP 6: Create or Update META Issue
+
+If no META issue exists, create one:
 
 ```bash
 bd create "[META] Project Progress Tracker" \
   -d "$(cat <<'EOF'
 ## Project Overview
-[Copy the project name and brief overview from app_spec.txt]
+Project Development Director - Transform coding harness into orchestrator for sub-agents
+
+## Mission
+[Copy key points from mission.md]
 
 ## Session Tracking
-This issue is used for session handoff between coding agents.
-Each agent should add a comment summarizing their session.
+This issue tracks session handoffs. Each agent adds a comment summarizing their session.
 
-## Key Milestones
-- [ ] Project setup complete
-- [ ] Core infrastructure working
-- [ ] Primary features implemented
-- [ ] All features complete
-- [ ] Polish and refinement done
-
-## Notes
-[Any important context about the project]
+## Phase Status
+- [ ] Phase 1: Assess-Improve Cycle (Items 1-3)
+- [ ] Phase 2: Sub-Agent Spawning (Items 4-6)
+- [ ] Phase 3: Director Mode (Items 7-10)
+- [ ] Phase 4: Parallel Execution (Items 11-14)
+- [ ] Phase 5: Architectural Fixes (Items 15-18)
 EOF
 )" \
   -p 0 \
@@ -159,300 +150,86 @@ EOF
   --json
 ```
 
-This META issue will be used by all future agents to:
-- Read context from previous sessions (via comments)
-- Write session summaries before ending
-- Track overall project milestones
-
-**Save the META issue ID from the JSON output** - you'll need it for the project state file.
-
-### NEXT TASK: Create init.sh
-
-Create a script called `init.sh` that future agents can use to quickly
-set up and run the development environment. The script should:
-
-1. Install any required dependencies
-2. Start any necessary servers or services
-3. Print helpful information about how to access the running application
-
-Base the script on the technology stack specified in `app_spec.txt`.
-
-### NEXT TASK: Initialize Git
-
-Create a git repository and make your first commit with:
-- init.sh (environment setup script)
-- README.md (project overview and setup instructions)
-- Any initial project structure files
-
-**Important:** Beads automatically syncs issues to `.beads/*.jsonl` files
-which should be committed to git.
-
-Commit message: "Initial setup: project structure and init script"
-
-### NEXT TASK: Create Project Structure
-
-Set up the basic project structure based on what's specified in `app_spec.txt`.
-This typically includes directories for frontend, backend, and any other
-components mentioned in the spec.
-
-### NEXT TASK: Create Spec-Level Project Marker
-
-Create a `.beads_project.json` in YOUR spec directory with your META issue ID.
-This marker tells the harness this spec has been initialized.
+If META exists, add a comment with current state:
 
 ```bash
-# After creating the META issue, get its ID from the bd create output
-# Then create the marker file:
+bd comment <meta-id> "Initializer: Verified issue coverage for roadmap items. [N] issues exist, [M] created this session."
+```
 
-cat > .beads_project.json << 'EOF'
+### STEP 7: Create Spec-Level Marker
+
+Create `.beads_project.json` in your working directory:
+
+```bash
+cat > .beads_project.json << EOF
 {
   "initialized": true,
-  "created_at": "[current timestamp]",
-  "project_name": "[Name from app_spec.txt]",
-  "meta_issue_id": "[META issue ID from bd create output]",
-  "total_issues": 50,
-  "notes": "Spec initialized by initializer agent"
+  "created_at": "$(date -Iseconds)",
+  "project_name": "Project Development Director",
+  "meta_issue_id": "[META issue ID]",
+  "total_issues": [count from bd stats],
+  "notes": "Issues created from agent-os/product/roadmap.md"
 }
 EOF
 ```
 
-**CRITICAL:** The `meta_issue_id` field is what tells the harness this spec is initialized.
-Without this file, each session will restart from initialization.
+**CRITICAL:** The `meta_issue_id` field tells the harness this spec is initialized.
 
-### NEXT TASK: Validate Dependency Graph
-
-After creating all issues and dependencies, validate the graph structure to ensure
-there are no circular dependencies and that priorities align with structural importance.
-
-**CRITICAL:** This validation step prevents deployment-blocking issues like deadlocked
-dependency graphs. Do NOT skip this step.
-
-#### 1. Check for Circular Dependencies
-
-Circular dependencies create deadlocks where no work can proceed. Detect them early:
+### STEP 8: Validate Dependency Graph
 
 ```bash
-# Source BV helpers
-source /home/jaypaulb/agent-os/profiles/default/workflows/implementation/bv-helpers.md
+# Check for cycles (deadlocks)
+bv --robot-insights 2>/dev/null | jq '.cycles' || echo "BV not available"
 
-if bv_available; then
-    echo ""
-    echo "=== Validating Dependency Graph ==="
-    echo ""
+# If cycles found, fix them:
+# bd dep remove <child-id> <parent-id>
 
-    if ! check_cycles; then
-        echo ""
-        echo "❌ ERROR: Circular dependencies detected!"
-        echo ""
-        echo "A cycle means Issue A depends on Issue B, which depends on Issue C,"
-        echo "which depends back on Issue A. This creates a deadlock where no work"
-        echo "can be completed."
-        echo ""
-        echo "To fix:"
-        echo "1. Review the cycle path shown above"
-        echo "2. Identify which dependency is incorrect or unnecessary"
-        echo "3. Remove it: bd dep remove <child-issue-id> <parent-issue-id> --type blocks"
-        echo "4. Re-run this validation"
-        echo ""
-        echo "DO NOT PROCEED until all cycles are resolved."
-        exit 1
-    else
-        echo "✓ No cycles found - dependency graph is valid"
-    fi
-fi
+# View ready issues (no blockers)
+bd ready
+
+# View blocked issues
+bd blocked
 ```
 
-**Expected output:**
-```
-=== Validating Dependency Graph ===
+### STEP 9: Summary and Handoff
 
-✓ No cycles found - dependency graph is valid
-```
-
-**If cycles are found:**
-- Review the cycle path shown (e.g., "bd-abc → bd-def → bd-ghi → bd-abc")
-- Identify the incorrect dependency in the chain
-- Remove it: `bd dep remove <issue-id> <blocker-id> --type blocks`
-- Re-run check_cycles until validation passes
-- **DO NOT CONTINUE** if cycles persist - this indicates a fundamental issue structure problem
-
-#### 2. Run Priority Analysis
-
-BV analyzes the dependency graph to identify priority misalignments - cases where
-human-assigned priority doesn't match structural importance:
+Before ending, output a summary:
 
 ```bash
-if bv_available; then
-    echo ""
-    echo "=== Analyzing Priority Alignment ==="
-    echo ""
-
-    PRIORITY_RECS=$(get_priority_recommendations)
-
-    # Display summary
-    echo "$PRIORITY_RECS" | jq -r '
-        "Total issues analyzed: \(.summary.total_issues)",
-        "Priority recommendations: \(.summary.recommendations)",
-        "High confidence (>0.8): \(.summary.high_confidence)",
-        ""
-    '
-
-    # Show high-confidence misalignments
-    HIGH_CONF=$(echo "$PRIORITY_RECS" | jq -r '
-        .recommendations[] |
-        select(.confidence > 0.8) |
-        "  • \(.issue_id): P\(.current_priority) → P\(.suggested_priority) (\(.confidence*100 | round)% confidence)\n    Reason: \(.reasoning)"
-    ')
-
-    if [[ -n "$HIGH_CONF" && "$HIGH_CONF" != "" ]]; then
-        echo "High-confidence priority adjustments recommended:"
-        echo ""
-        echo "$HIGH_CONF"
-        echo ""
-
-        # Auto-apply high-confidence recommendations
-        echo "Applying high-confidence priority updates..."
-        echo "$PRIORITY_RECS" | jq -r '
-            .recommendations[] |
-            select(.confidence > 0.8) |
-            "\(.issue_id) \(.suggested_priority)"
-        ' | while read -r issue_id new_priority; do
-            bd update "$issue_id" --priority "$new_priority" --json > /dev/null
-            echo "  ✓ Updated $issue_id to P$new_priority"
-        done
-
-        echo ""
-        echo "Priority updates complete"
-    else
-        echo "✓ No high-confidence priority adjustments needed"
-    fi
-fi
+bd stats
+bd ready --limit 10
 ```
 
-**What confidence scores mean:**
-- **>0.9**: Very strong signal - graph structure clearly indicates misalignment
-- **0.8-0.9**: Strong signal - multiple graph metrics agree
-- **0.6-0.8**: Moderate signal - some evidence of misalignment
-- **<0.6**: Weak signal - human priorities likely correct
-
-**Common recommendation types:**
-
-*Increase Priority (low priority but high structural importance):*
-- **Bottleneck**: Bridges different parts of the graph
-- **Critical path**: On the longest dependency chain
-- **Wide impact**: Blocks many downstream tasks
-- **Foundation**: Connected to other important issues
-
-*Decrease Priority (high priority but low structural importance):*
-- **Leaf node**: Few or no dependents
-- **Not on critical path**: Can be delayed without cascading effects
-- **Isolated**: Completing it doesn't unblock significant work
-
-#### 3. Display Final Graph Summary
-
-Show the overall state of the dependency graph:
+Add session comment to META:
 
 ```bash
-if bv_available; then
-    echo ""
-    echo "=== Final Graph Summary ==="
-    echo ""
+bd comment <meta-id> "$(cat <<'EOF'
+## Initializer Session Complete
 
-    # Get graph insights
-    INSIGHTS=$(get_graph_insights)
+### Actions Taken
+- Read product docs: mission.md, roadmap.md, tech-stack.md
+- Checked existing issues: [N] found
+- Created new issues: [M] for missing roadmap coverage
+- Set up dependencies between phases
+- Validated no circular dependencies
 
-    # Total issue count
-    TOTAL_ISSUES=$(bd list --json | jq '. | length')
-    echo "Total issues created: $TOTAL_ISSUES"
+### Current State
+- Total issues: [from bd stats]
+- Ready to work: [count]
+- Blocked: [count]
 
-    # Ready work count (unblocked issues)
-    READY_COUNT=$(bd ready --json | jq '. | length')
-    echo "Ready work (unblocked): $READY_COUNT"
-
-    # Show bottlenecks (if any)
-    BOTTLENECKS=$(echo "$INSIGHTS" | jq -r '.bottlenecks[:3] | .[] | .id' 2>/dev/null)
-    if [[ -n "$BOTTLENECKS" && "$BOTTLENECKS" != "" ]]; then
-        echo ""
-        echo "Key bottleneck issues (high impact when completed):"
-        echo "$BOTTLENECKS" | while read -r issue_id; do
-            TITLE=$(bd show "$issue_id" --json | jq -r '.title')
-            echo "  • $issue_id: $TITLE"
-        done
-    fi
-
-    # Show keystones (critical path items)
-    KEYSTONES=$(echo "$INSIGHTS" | jq -r '.keystones[:3] | .[] | .id' 2>/dev/null)
-    if [[ -n "$KEYSTONES" && "$KEYSTONES" != "" ]]; then
-        echo ""
-        echo "Critical path issues (must complete for project completion):"
-        echo "$KEYSTONES" | while read -r issue_id; do
-            TITLE=$(bd show "$issue_id" --json | jq -r '.title')
-            echo "  • $issue_id: $TITLE"
-        done
-    fi
-
-    echo ""
-    echo "✓ Dependency graph validation complete"
-fi
-```
-
-**Important notes:**
-- This validation runs AFTER all issue creation is complete
-- It's a quality check step that catches structural problems early
-- Fails loudly if cycles detected (prevents later deadlocks)
-- Auto-applies high-confidence priority recommendations
-- Should be the last validation before implementation begins
-
-### OPTIONAL: Start Implementation
-
-If you have time remaining in this session, you may begin implementing
-the highest-priority features. Remember:
-- Use `bd ready --limit 5 --sort priority --json` to find high-priority open issues
-- Use `bd update <issue-id> --status in_progress --json` to claim an issue
-- Work on ONE feature at a time
-- Test thoroughly before marking status as "closed"
-- Add a comment to the issue with implementation notes: `bd comment <issue-id> "..."`
-- Commit your progress before session ends
-
-### ENDING THIS SESSION
-
-Before your context fills up:
-
-1. **Commit all work** with descriptive messages (include `.beads/` directory!)
-
-2. **Add a comment to the META issue** summarizing what you accomplished:
-
-```bash
-bd comment <meta-issue-id> "$(cat <<'EOF'
-## Session 1 Complete - Initialization
-
-### Accomplished
-- Created 50 Beads issues from app_spec.txt
-- Set up project structure
-- Created init.sh
-- Initialized git repository
-- [Any features started/completed]
-
-### Beads Status
-- Total issues: 50
-- Closed: X
-- In Progress: Y
-- Open: Z
-
-### Notes for Next Session
-- [Any important context]
-- [Recommendations for what to work on next]
+### Recommended Next Steps
+- Start with Phase [X] items (highest priority ready work)
+- Run `bd ready` to see available work
 EOF
-)" --json
+)"
 ```
-
-3. **Ensure `.beads_project.json` exists** and contains all required fields
-
-4. **Leave the environment in a clean, working state**
-
-The next agent will continue from here with a fresh context window.
 
 ---
 
-**Remember:** You have unlimited time across many sessions. Focus on
-quality over speed. Production-ready is the goal.
+**Key Principles:**
+1. **Incremental:** Don't assume fresh start - check what exists first
+2. **No duplicates:** Match existing issues before creating new ones
+3. **Roadmap-driven:** All issues trace back to roadmap.md items
+4. **Dependency-aware:** Set up blockers between phases
+5. **Documented:** META issue tracks overall progress
