@@ -20,6 +20,7 @@ ALLOWED_COMMANDS = {
     "tail",
     "wc",
     "grep",
+    "find",
     # File operations (agent uses SDK tools for most file ops, but cp/mkdir needed occasionally)
     "cp",
     "mkdir",
@@ -29,6 +30,18 @@ ALLOWED_COMMANDS = {
     # Node.js development
     "npm",
     "node",
+    # Python development
+    "python",
+    "python3",
+    "pip",
+    "pip3",
+    "pytest",
+    # Shell utilities
+    "cd",
+    "echo",
+    "jq",
+    "true",
+    "false",
     # Version control
     "git",
     # Process management
@@ -177,6 +190,11 @@ def validate_pkill_command(command_string: str) -> tuple[bool, str]:
         "npx",
         "vite",
         "next",
+        "python",
+        "python3",
+        "pytest",
+        "uvicorn",
+        "gunicorn",
     }
 
     try:

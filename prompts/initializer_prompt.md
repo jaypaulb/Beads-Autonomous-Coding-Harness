@@ -13,17 +13,19 @@ Start by reading `app_spec.txt` in your working directory. This file contains
 the complete specification for what you need to build. Read it carefully
 before proceeding.
 
-### SECOND: Initialize Beads
+### SECOND: Verify Beads Connection
 
-Before creating issues, you need to initialize Beads in the project directory:
+Beads is already initialized at the harness root level (single database for all specs).
+Verify you can access it:
 
 ```bash
-bd init
+bd info
+bd stats
 ```
 
-This creates the `.beads/` directory and configures git integration.
-Beads will automatically use the directory name as the issue prefix
-(e.g., if your directory is "claude-clone", issues will be "claude-clone-abc123").
+You should see the root-level database. All issues you create will be stored there.
+The issue prefix is based on your spec directory name
+(e.g., if your directory is "2025-12-16-my-project", issues will use that prefix).
 
 ### CRITICAL TASK: Create Beads Issues
 
@@ -193,29 +195,29 @@ Set up the basic project structure based on what's specified in `app_spec.txt`.
 This typically includes directories for frontend, backend, and any other
 components mentioned in the spec.
 
-### NEXT TASK: Save Beads Project State
+### NEXT TASK: Create Spec-Level Project Marker
 
-Create a file called `.beads_project.json` with the following information:
+Create a `.beads_project.json` in YOUR spec directory with your META issue ID.
+This marker tells the harness this spec has been initialized.
 
-```json
+```bash
+# After creating the META issue, get its ID from the bd create output
+# Then create the marker file:
+
+cat > .beads_project.json << 'EOF'
 {
   "initialized": true,
   "created_at": "[current timestamp]",
-  "project_name": "[Name of the project from app_spec.txt]",
-  "meta_issue_id": "[ID of the META issue you created, e.g., 'myproject-abc123']",
+  "project_name": "[Name from app_spec.txt]",
+  "meta_issue_id": "[META issue ID from bd create output]",
   "total_issues": 50,
-  "issue_prefix": "[The prefix from 'bd info', e.g., 'myproject']",
-  "notes": "Project initialized by initializer agent"
+  "notes": "Spec initialized by initializer agent"
 }
+EOF
 ```
 
-**How to get the issue prefix:**
-
-```bash
-bd info --json | grep -o '"prefix":"[^"]*"' | cut -d'"' -f4
-```
-
-This file tells future sessions that Beads has been set up.
+**CRITICAL:** The `meta_issue_id` field is what tells the harness this spec is initialized.
+Without this file, each session will restart from initialization.
 
 ### NEXT TASK: Validate Dependency Graph
 

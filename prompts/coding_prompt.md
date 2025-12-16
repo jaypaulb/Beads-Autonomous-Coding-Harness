@@ -3,8 +3,23 @@
 You are continuing work on a long-running autonomous development task.
 This is a FRESH context window - you have no memory of previous sessions.
 
-You have access to Beads (`bd`) for local issue tracking. Beads is your
-single source of truth for what needs to be built and what's been completed.
+### TOOL HIERARCHY: BV > BD
+
+**Use `bv` (Beads Viewer) for READ operations:**
+- `bv --robot-insights` - Graph analysis, bottlenecks, cycles
+- `bv --robot-plan` - Dependency-respecting execution plan
+- `bv --robot-priority` - Priority recommendations
+- `bv --robot-diff --diff-since X` - Session change tracking
+
+**Use `bd` (Beads CLI) for WRITE operations:**
+- `bd update <id> --status X` - Change issue status
+- `bd close <id>` - Close an issue
+- `bd comment <id> "text"` - Add comments
+- `bd show <id>` - View single issue details
+
+**Why BV first:** BV provides graph intelligence (bottlenecks, critical paths,
+cycle detection) that `bd` cannot. Always prefer BV for analysis.
+
 All issues are stored locally in `.beads/*.jsonl` files and tracked in git.
 
 ### STEP 1: GET YOUR BEARINGS (MANDATORY)
@@ -21,8 +36,8 @@ ls -la
 # 3. Read the project specification to understand what you're building
 cat app_spec.txt
 
-# 4. Read the Beads project state
-cat .beads_project.json
+# 4. Read the Beads project state (root-level single database)
+cat /home/jaypaulb/Projects/gh/Linear-Coding-Agent-Harness/.beads_project.json
 
 # 5. Check recent git history
 git log --oneline -20
@@ -34,48 +49,43 @@ bd info
 Understanding the `app_spec.txt` is critical - it contains the full requirements
 for the application you're building.
 
-### STEP 2: CHECK BEADS STATUS
+### STEP 2: CHECK PROJECT STATUS (USE BV!)
 
-Query Beads to understand current project state. All commands support `--json` for
-programmatic parsing.
+**IMPORTANT:** Use `bv` (Beads Viewer) for project analysis. It provides graph intelligence
+that `bd` cannot. Only fall back to `bd` for mutations (update, close, comment).
 
-1. **Find the META issue** for session context:
+1. **Get graph insights and project health:**
    ```bash
-   # List all issues with 'meta' label
-   bd list --label meta --json
+   # PRIMARY: Use BV for comprehensive project analysis
+   bv --robot-insights
    ```
-   Read the META issue description and recent comments for context from previous sessions:
-   ```bash
-   # View META issue details
-   bd show <meta-issue-id>
+   This gives you: bottlenecks, keystones, influencers, cycles, and overall graph health.
 
-   # View comments on META issue
+2. **Get progress counts:**
+   ```bash
+   bd stats
+   ```
+   This shows: total issues, open, in_progress, closed, blocked, ready counts.
+
+3. **Find the META issue** for session context:
+   ```bash
+   # Get META issue ID from root-level project config
+   cat /home/jaypaulb/Projects/gh/Linear-Coding-Agent-Harness/.beads_project.json | jq -r '.meta_issue_id'
+
+   # View META issue details and comments
+   bd show <meta-issue-id>
    bd comments list <meta-issue-id>
    ```
 
-2. **Count progress:**
+4. **Check for in-progress work:**
    ```bash
-   # Count closed issues
-   bd list --status closed --json | jq 'length'
-
-   # Count open issues
-   bd list --status open --json | jq 'length'
-
-   # Count in-progress issues
-   bd list --status in_progress --json | jq 'length'
-   ```
-
-3. **Check for in-progress work:**
-   ```bash
-   # Find any issues currently in progress
-   bd list --status in_progress --json
+   bd list --status in_progress
    ```
    If any issue is "in_progress", that should be your first priority.
    A previous session may have been interrupted.
 
-4. **Record session start point** (for later summary):
+5. **Record session start point** (for later summary):
    ```bash
-   # Record current git commit for session diff tracking
    git rev-parse HEAD > .beads/session-start-commit
    ```
 
@@ -126,168 +136,64 @@ Fix the issue BEFORE moving to new features. This includes UI bugs like:
 - Missing hover states
 - Console errors
 
-### STEP 4.5: ANALYZE GRAPH INSIGHTS (IF BV AVAILABLE)
+### STEP 4.5: UNDERSTAND GRAPH STRUCTURE (FROM STEP 2)
 
-**OPTIONAL BUT RECOMMENDED:** If Beads Viewer (BV) is available, use graph intelligence
-to identify structurally critical work beyond basic priority.
+Review the `bv --robot-insights` results from Step 2. Understanding these metrics
+helps you prioritize work effectively:
 
-```bash
-# Check if BV is available
-if command -v bv &> /dev/null; then
-    echo "BV available - analyzing graph structure"
+**Metric explanations:**
 
-    # Get graph insights
-    INSIGHTS=$(bv --robot-insights --format json 2>/dev/null)
+- **Bottlenecks (betweenness):** Issues that sit between multiple work streams.
+  Completing these unblocks parallel work in different areas. Prioritize when you
+  need to maximize team/agent parallelism.
 
-    if [[ -n "$INSIGHTS" && "$INSIGHTS" != "null" ]]; then
-        echo ""
-        echo "=== Graph Intelligence Summary ==="
+- **Keystones (critical path):** Issues on the longest dependency chain. Delays
+  here push back the entire project timeline. Prioritize when timeline is critical.
 
-        # Show bottlenecks (issues that bridge work streams)
-        echo ""
-        echo "Top Bottlenecks (unblock the most parallel work):"
-        echo "$INSIGHTS" | jq -r '.bottlenecks[:3] | .[] |
-            "  • \(.id): \(.title) (betweenness: \(.value | tonumber | . * 100 | round / 100))"'
+- **Influencers (eigenvector):** Foundational work that many important features
+  depend on. Often low-priority utilities that are actually critical. Implement
+  these early with thorough testing.
 
-        # Show keystones (critical path items)
-        echo ""
-        echo "Top Keystones (on the critical path):"
-        echo "$INSIGHTS" | jq -r '.keystones[:3] | .[] |
-            "  • \(.id): \(.title) (path length: \(.value | tonumber | round))"'
-
-        # Show influencers (foundational work)
-        echo ""
-        echo "Top Influencers (foundational - many features depend on these):"
-        echo "$INSIGHTS" | jq -r '.influencers[:3] | .[] |
-            "  • \(.id): \(.title) (eigenvector: \(.value | tonumber | . * 100 | round / 100))"'
-
-        # Check for cycles
-        CYCLE_COUNT=$(echo "$INSIGHTS" | jq -r '.cycles | length')
-        if [[ "$CYCLE_COUNT" -gt 0 ]]; then
-            echo ""
-            echo "⚠️  WARNING: $CYCLE_COUNT circular dependencies detected!"
-            echo "$INSIGHTS" | jq -r '.cycles[] | "  Cycle: " + (. | join(" → "))'
-            echo ""
-            echo "Circular dependencies should be resolved before continuing."
-        fi
-    fi
-else
-    echo "BV not available - using basic task selection"
-fi
-```
-
-**Understanding the metrics:**
-
-- **Bottlenecks (betweenness):** Issues that sit between multiple work streams. Completing
-  these unblocks parallel work in different areas. Prioritize when you need to maximize
-  team/agent parallelism.
-
-- **Keystones (critical path):** Issues on the longest dependency chain. Delays here push
-  back the entire project timeline. Prioritize when timeline is critical.
-
-- **Influencers (eigenvector):** Foundational work that many important features depend on.
-  Often low-priority utilities that are actually critical. Implement these early with
-  thorough testing.
+- **Cycles:** Circular dependencies that MUST be fixed before continuing.
 
 **Example interpretation:**
 ```
 Bottleneck: bd-201 (Auth service) - betweenness: 0.52
-→ This issue bridges multiple feature areas. Completing it unblocks work on login,
+→ Bridges multiple feature areas. Completing it unblocks work on login,
   signup, and user management simultaneously.
 
 Keystone: bd-101 (Email validator) - path length: 5
-→ This is at the start of a 5-issue dependency chain. Any delay cascades through
+→ At the start of a 5-issue dependency chain. Any delay cascades through
   all downstream work.
 
 Influencer: bd-050 (Error handler) - eigenvector: 0.42
-→ This utility is used by many critical features. A bug here affects multiple
-  downstream components - invest extra care in testing.
+→ Used by many critical features. A bug here affects multiple downstream
+  components - invest extra care in testing.
 ```
-
-If BV is unavailable, this step is skipped automatically and you fall back to
-priority-based selection in Step 5.
 
 ### STEP 5: SELECT NEXT ISSUE TO WORK ON
 
-**If BV is available,** use the execution plan which combines priority, dependencies,
-and graph intelligence to recommend optimal work order:
+**Use BV for task selection:**
 
 ```bash
-# Check if BV is available for execution planning
-if command -v bv &> /dev/null; then
-    echo "Using BV execution plan (graph-aware task selection)..."
-
-    # Get execution plan
-    PLAN=$(bv --robot-plan --format json 2>/dev/null)
-
-    if [[ -n "$PLAN" && "$PLAN" != "null" ]]; then
-        echo ""
-        echo "=== BV Execution Plan ==="
-
-        # Show parallel tracks
-        echo "$PLAN" | jq -r '
-            "Available parallel work tracks: \(.tracks | length)",
-            "",
-            (.tracks[] |
-                "Track \(.track_id): \(.track_name)",
-                "  Next: \(.items[0].id) - \(.items[0].title)",
-                "  Impact: Unblocks \(.items[0].unblocks_count) downstream tasks",
-                "  Priority: P\(.items[0].priority)",
-                ""
-            )'
-
-        # Extract recommended next task (first item from highest-impact track)
-        RECOMMENDED=$(echo "$PLAN" | jq -r '.tracks[0].items[0].id')
-
-        echo "Recommended next task: $RECOMMENDED"
-        echo ""
-        echo "Why this task?"
-        echo "$PLAN" | jq -r '.tracks[0].items[0] |
-            "  • Priority: P\(.priority)",
-            "  • Unblocks: \(.unblocks_count) downstream tasks",
-            "  • Ready: All dependencies resolved",
-            (if .structural_importance then
-                "  • Structural: \(.structural_importance)"
-            else "" end)'
-
-    else
-        echo "BV plan unavailable, falling back to bd ready"
-        bd ready --limit 5 --sort priority --json | jq -r '.[] |
-            "\(.id): \(.title) (P\(.priority))"'
-    fi
-else
-    echo "BV not available - using basic task selection"
-
-    # Fallback: Use basic bd ready command
-    bd ready --limit 5 --sort priority --json | jq -r '.[] |
-        "\(.id): \(.title) (P\(.priority))"'
-fi
+# PRIMARY: Get dependency-respecting execution plan
+bv --robot-plan
 ```
 
-**BV Execution Plan features:**
+This provides:
+- **Parallel tracks:** Independent work streams that can be parallelized
+- **Impact-aware ordering:** Tasks that unblock the most downstream work first
+- **Structural importance:** Bottlenecks, keystones, influencers highlighted
+- **Unblocks count:** How many downstream tasks each item enables
 
-- **Parallel tracks:** Shows independent work streams that can be done in parallel
-- **Impact-aware:** Prioritizes tasks that unblock the most downstream work
-- **Bottleneck detection:** Surfaces critical path items that would delay the project
-- **Graph-aware:** Considers structural importance beyond just priority numbers
-
-**If BV is unavailable,** the script automatically falls back to basic Beads:
-
+**Fallback only if BV unavailable:**
 ```bash
-# Basic fallback (automatically used if BV not available)
-bd ready --limit 5 --sort priority --json
+bd ready --limit 5
 ```
 
-This automatically filters for:
-- Issues with status "open"
-- No blocking dependencies
-- Sorted by priority (0=urgent first)
+**Selection criteria:**
 
-**Selection criteria (with or without BV):**
-
-Review the recommended/listed issues and select ONE to work on. Consider:
-
-1. **Structural importance** (if BV shows bottleneck/keystone/influencer)
+1. **Structural importance** (bottleneck/keystone/influencer from Step 2)
 2. **Unblocking impact** (how many downstream tasks this unblocks)
 3. **Priority** (P0 > P1 > P2 > P3)
 4. **Complexity** (can you complete it in this session?)
@@ -400,188 +306,77 @@ git commit -m "Implement [feature name]
 **Important:** Beads automatically syncs issue state to `.beads/*.jsonl` files.
 These changes are committed with your code, providing a complete audit trail.
 
-### STEP 11: GENERATE SESSION SUMMARY (WITH BV IF AVAILABLE)
+### STEP 11: GENERATE SESSION SUMMARY
 
-**Before ending the session,** generate a comprehensive summary of what changed.
-
-**If BV is available,** use time-travel diff tracking for automated summary:
+**Use BV for automated session diff tracking:**
 
 ```bash
-# Check if BV is available
-if command -v bv &> /dev/null; then
-    echo ""
-    echo "=== Session Summary (BV-powered) ==="
+# Get session start point (recorded in Step 2)
+SESSION_START=$(cat .beads/session-start-commit 2>/dev/null || echo "HEAD~1")
 
-    # Get session start point (set in Step 2)
-    SESSION_START=$(cat .beads/session-start-commit 2>/dev/null || echo "HEAD~1")
-
-    # Get diff since session start
-    DIFF=$(bv --robot-diff --diff-since "$SESSION_START" --format json 2>/dev/null)
-
-    if [[ -n "$DIFF" && "$DIFF" != "null" ]]; then
-        # Display summary
-        echo "$DIFF" | jq -r '
-            "Changes since session start:",
-            "  • Closed: \(.changes.closed_issues | length) issues",
-            "  • Created: \(.changes.new_issues | length) new issues",
-            "  • Modified: \(.changes.modified_issues | length) issues",
-            "",
-            "Closed issues:",
-            (.changes.closed_issues[] | "  ✓ \(.id): \(.title)"),
-            "",
-            (if (.changes.new_issues | length) > 0 then
-                "New issues discovered:",
-                (.changes.new_issues[] | "  + \(.id): \(.title)"),
-                ""
-            else "" end),
-            (if (.changes.modified_issues | length) > 0 then
-                "Modified issues:",
-                (.changes.modified_issues[] | "  ~ \(.id): \(.title)"),
-                ""
-            else "" end)'
-
-        # Check for new cycles (CRITICAL)
-        NEW_CYCLES=$(echo "$DIFF" | jq -r '.graph_changes.new_cycles | length')
-
-        if [[ "$NEW_CYCLES" -gt 0 ]]; then
-            echo ""
-            echo "❌ CRITICAL: $NEW_CYCLES new circular dependencies introduced!"
-            echo ""
-            echo "$DIFF" | jq -r '.graph_changes.new_cycles[] | "  Cycle: " + (. | join(" → "))'
-            echo ""
-            echo "⚠️  You MUST fix these cycles before ending the session."
-            echo "   Circular dependencies will cause issues for future work."
-            echo ""
-            echo "To fix:"
-            echo "  1. Identify which dependency creates the cycle"
-            echo "  2. Remove or reverse the problematic dependency"
-            echo "  3. Re-run this session summary to verify cycles resolved"
-            echo ""
-
-            # Optionally block session end
-            read -p "Continue despite cycles? [y/N]: " continue_session
-            if [[ ! "$continue_session" =~ ^[Yy]$ ]]; then
-                echo "Session end blocked. Fix cycles first."
-                exit 1
-            fi
-        else
-            echo "✓ No circular dependencies introduced"
-        fi
-
-        # Show resolved cycles (if any)
-        RESOLVED_CYCLES=$(echo "$DIFF" | jq -r '.graph_changes.resolved_cycles | length')
-        if [[ "$RESOLVED_CYCLES" -gt 0 ]]; then
-            echo ""
-            echo "✓ Fixed $RESOLVED_CYCLES circular dependencies!"
-        fi
-    else
-        echo "BV diff unavailable, using manual summary"
-    fi
-else
-    echo "BV not available - manual session summary required"
-fi
-
-# Manual summary counts (always available as fallback)
-CLOSED_COUNT=$(bd list --status closed --json 2>/dev/null | jq 'length')
-OPEN_COUNT=$(bd list --status open --json 2>/dev/null | jq 'length')
-IN_PROGRESS_COUNT=$(bd list --status in_progress --json 2>/dev/null | jq 'length')
-
-echo ""
-echo "=== Overall Project Status ==="
-echo "  Closed: $CLOSED_COUNT"
-echo "  Open: $OPEN_COUNT"
-echo "  In Progress: $IN_PROGRESS_COUNT"
+# Get comprehensive diff from BV
+bv --robot-diff --diff-since "$SESSION_START"
 ```
 
-**Understanding the cycle check:**
+This provides:
+- Closed issues this session
+- New issues discovered
+- Modified issues
+- New cycles introduced (CRITICAL - must be fixed!)
+- Resolved cycles
 
-Circular dependencies occur when:
+**Check for cycles (CRITICAL):**
+If BV reports new circular dependencies, you MUST fix them before ending:
+1. Identify which dependency creates the cycle
+2. Remove or reverse the problematic dependency
+3. Re-run `bv --robot-diff` to verify cycles resolved
+
+**Get overall project status:**
+```bash
+bd stats
 ```
-bd-101 depends on bd-102
-bd-102 depends on bd-103
-bd-103 depends on bd-101  ← Creates a cycle!
-```
-
-These are problematic because:
-- No clear starting point for implementation
-- Agents get stuck in dependency loops
-- Build systems may fail
-
-**If cycles are detected,** you MUST resolve them before ending the session.
 
 ### STEP 12: UPDATE META ISSUE
 
-Add a comment to the META issue with session summary:
+Add a detailed comment to the META issue with session summary:
 
 ```bash
-# First, get the META issue ID from .beads_project.json
-META_ID=$(cat .beads_project.json | jq -r '.meta_issue_id')
+# Get META issue ID from root-level config
+META_ID=$(cat /home/jaypaulb/Projects/gh/Linear-Coding-Agent-Harness/.beads_project.json | jq -r '.meta_issue_id')
 
-# If BV available, use automated summary
-if command -v bv &> /dev/null; then
-    SESSION_START=$(cat .beads/session-start-commit 2>/dev/null || echo "HEAD~1")
-    DIFF=$(bv --robot-diff --diff-since "$SESSION_START" --format json 2>/dev/null)
-
-    # Generate BV-powered session comment
-    CLOSED_LIST=$(echo "$DIFF" | jq -r '.changes.closed_issues[] | "- \(.id): \(.title)"')
-    CLOSED_COUNT=$(echo "$DIFF" | jq -r '.changes.closed_issues | length')
-    NEW_COUNT=$(echo "$DIFF" | jq -r '.changes.new_issues | length')
-    MODIFIED_COUNT=$(echo "$DIFF" | jq -r '.changes.modified_issues | length')
-    CYCLE_COUNT=$(echo "$DIFF" | jq -r '.graph_changes.new_cycles | length')
-
-    bd comment $META_ID "$(cat <<EOF
-## Session Complete - [Brief description]
+# Add comprehensive session comment
+bd comment $META_ID "$(cat <<'EOF'
+## Session Complete - [Brief description of main accomplishment]
 
 ### Completed This Session
-$CLOSED_LIST
+- [issue-id]: [Brief summary of implementation]
+- [issue-id]: [Brief summary of implementation]
 
-### Session Stats (BV-powered)
-- $CLOSED_COUNT issues closed
-- $NEW_COUNT new issues discovered
-- $MODIFIED_COUNT issues modified
-- $CYCLE_COUNT new cycles introduced
+### Session Stats
+- X issues closed
+- Y new issues discovered (if any)
+- Z issues modified
 
 ### Current Progress
-- $(bd list --status closed --json | jq 'length') issues Closed
-- $(bd list --status in_progress --json | jq 'length') issues In Progress
-- $(bd list --status open --json | jq 'length') issues remaining in Open
+- [closed] issues Closed
+- [in_progress] issues In Progress
+- [open] issues remaining Open
 
 ### Verification Status
 - Ran verification tests on [feature names]
 - All previously completed features still working: [Yes/No]
 
 ### Notes for Next Session
-- [Any important context]
+- [Any important context for continuity]
 - [Recommendations for what to work on next]
-- [Any blockers or concerns]
+- [Any blockers or concerns discovered]
 EOF
-)" --json
-
-else
-    # Fallback to manual summary
-    bd comment $META_ID "$(cat <<'EOF'
-## Session Complete - [Brief description]
-
-### Completed This Session
-- [Issue title]: [Brief summary of implementation]
-
-### Current Progress
-- X issues Closed
-- Y issues In Progress
-- Z issues remaining in Open
-
-### Verification Status
-- Ran verification tests on [feature names]
-- All previously completed features still working: [Yes/No]
-
-### Notes for Next Session
-- [Any important context]
-- [Recommendations for what to work on next]
-- [Any blockers or concerns]
-EOF
-)" --json
-fi
+)"
 ```
+
+**Why detailed comments matter:** These comments are your handoff notes to the next
+session. Future agents have no memory - they rely entirely on these summaries to
+understand project state and continue work effectively.
 
 ### STEP 13: END SESSION CLEANLY
 

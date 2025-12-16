@@ -12,7 +12,7 @@ from typing import Optional
 from claude_code_sdk import ClaudeSDKClient
 
 from client import create_client
-from progress import print_session_header, print_progress_summary, is_beads_initialized
+from progress import print_session_header, print_progress_summary, is_spec_initialized
 from prompts import get_initializer_prompt, get_coding_prompt, copy_spec_to_project
 
 
@@ -122,8 +122,8 @@ async def run_autonomous_agent(
     project_dir.mkdir(parents=True, exist_ok=True)
 
     # Check if this is a fresh start or continuation
-    # We use .beads_project.json as the marker for initialization
-    is_first_run = not is_beads_initialized(project_dir)
+    # Each spec has its own .beads_project.json with META issue ID
+    is_first_run = not is_spec_initialized(project_dir)
 
     if is_first_run:
         print("Fresh start - will use initializer agent")

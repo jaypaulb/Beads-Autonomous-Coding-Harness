@@ -6,6 +6,12 @@ Configuration constants for Beads integration.
 These values are used in prompts and for project state management.
 """
 
+from pathlib import Path
+
+# Beads root directory - single .beads/ at harness root
+# All specs share this database; beads CLI auto-discovers it
+BEADS_ROOT = Path(__file__).parent.resolve()
+
 # Default number of issues to create (can be overridden via command line)
 DEFAULT_ISSUE_COUNT = 50
 
