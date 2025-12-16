@@ -3,13 +3,13 @@ Progress Tracking Utilities
 ===========================
 
 Functions for tracking and displaying progress of the autonomous coding agent.
-Progress is tracked via Beads issues at the harness root level.
+Progress is tracked via Beads issues at the project root level.
 """
 
 import json
 from pathlib import Path
 
-from beads_config import BEADS_PROJECT_MARKER, BEADS_ROOT
+from beads_config import BEADS_PROJECT_MARKER, BEADS_ROOT, SPECS_DIR
 
 
 def load_beads_project_state(project_dir: Path = None) -> dict | None:
@@ -22,7 +22,7 @@ def load_beads_project_state(project_dir: Path = None) -> dict | None:
     Returns:
         Project state dict or None if not initialized
     """
-    # Always check harness root for beads marker (single database architecture)
+    # Always check project root for beads marker (single database architecture)
     marker_file = BEADS_ROOT / BEADS_PROJECT_MARKER
 
     if not marker_file.exists():
@@ -37,13 +37,13 @@ def load_beads_project_state(project_dir: Path = None) -> dict | None:
 
 def is_beads_initialized(project_dir: Path = None) -> bool:
     """
-    Check if Beads infrastructure is available at harness root.
+    Check if Beads infrastructure is available at project root.
 
     Args:
         project_dir: Ignored - always checks BEADS_ROOT
 
     Returns:
-        True if .beads/ exists at harness root with valid marker
+        True if .beads/ exists at project root with valid marker
     """
     # Check for .beads directory at root
     beads_dir = BEADS_ROOT / ".beads"
@@ -85,6 +85,65 @@ def is_spec_initialized(project_dir: Path) -> bool:
         return False
 
 
+def detect_rogue_beads_dirs() -> list[Path]:
+    """
+    Detect any .beads/ directories inside spec folders.
+
+    This is a pure scan function that finds violations of the single-database
+    architecture. Beads should only exist at BEADS_ROOT, not inside individual
+    spec directories.
+
+    Returns:
+        List of Path objects pointing to violating .beads/ directories.
+        Empty list if architecture is correct.
+    """
+    rogue_dirs = []
+
+    # Only scan if SPECS_DIR exists
+    if not SPECS_DIR.exists():
+        return rogue_dirs
+
+    # Walk through all spec directories looking for .beads/
+    for spec_dir in SPECS_DIR.iterdir():
+        if not spec_dir.is_dir():
+            continue
+
+        # Check for .beads/ at spec level
+        potential_rogue = spec_dir / ".beads"
+        if potential_rogue.exists() and potential_rogue.is_dir():
+            rogue_dirs.append(potential_rogue)
+
+        # Also check nested directories (e.g., spec/implementation/.beads)
+        for subdir in spec_dir.rglob(".beads"):
+            if subdir.is_dir() and subdir not in rogue_dirs:
+                rogue_dirs.append(subdir)
+
+    return rogue_dirs
+
+
+def enforce_single_beads_database() -> None:
+    """
+    Enforce the single-database architecture by failing if rogue .beads/ exist.
+
+    This validation function should be called at startup of director sessions
+    to ensure no spec-level .beads/ directories have been created.
+
+    Raises:
+        RuntimeError: If any spec-level .beads/ directories are detected,
+                     with a message listing all violating paths.
+    """
+    rogue_dirs = detect_rogue_beads_dirs()
+
+    if rogue_dirs:
+        paths_str = "\n  - ".join(str(p) for p in rogue_dirs)
+        raise RuntimeError(
+            f"Single-database architecture violation detected!\n"
+            f"Found {len(rogue_dirs)} spec-level .beads/ directories:\n"
+            f"  - {paths_str}\n\n"
+            f"Run scripts/migrate_beads.py to consolidate to root database."
+        )
+
+
 def print_session_header(session_num: int, is_initializer: bool) -> None:
     """Print a formatted header for the session."""
     session_type = "INITIALIZER" if is_initializer else "CODING AGENT"
@@ -99,7 +158,7 @@ def print_progress_summary(project_dir: Path = None) -> None:
     """
     Print a summary of current progress.
 
-    Since actual progress is tracked in Beads at harness root, this reads
+    Since actual progress is tracked in Beads at project root, this reads
     the root state file for cached information. The agent updates Beads
     directly and reports progress in session comments.
     """
