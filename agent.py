@@ -12,8 +12,18 @@ from typing import Optional
 from claude_code_sdk import ClaudeSDKClient
 
 from client import create_client
-from progress import print_session_header, print_progress_summary, is_spec_initialized
-from prompts import get_initializer_prompt, get_coding_prompt, copy_spec_to_project
+from progress import (
+    print_session_header,
+    print_progress_summary,
+    is_spec_initialized,
+    is_beads_initialized,
+)
+from prompts import (
+    get_initializer_prompt,
+    get_coding_prompt,
+    get_director_prompt,
+    copy_spec_to_project,
+)
 
 
 # Configuration
@@ -102,6 +112,11 @@ async def run_autonomous_agent(
     """
     Run the autonomous agent loop.
 
+    Prompt selection logic:
+    - First run (spec not initialized): Use initializer_prompt to set up Beads
+    - Subsequent runs with Beads initialized: Use director_prompt for orchestration
+    - Subsequent runs without Beads: Use coding_prompt for direct implementation
+
     Args:
         project_dir: Directory for the project
         model: Claude model to use
@@ -125,6 +140,10 @@ async def run_autonomous_agent(
     # Each spec has its own .beads_project.json with META issue ID
     is_first_run = not is_spec_initialized(project_dir)
 
+    # Check if Beads infrastructure exists at project root
+    # This determines whether to use director_prompt (orchestration) or coding_prompt (direct)
+    beads_initialized = is_beads_initialized()
+
     if is_first_run:
         print("Fresh start - will use initializer agent")
         print()
@@ -137,7 +156,10 @@ async def run_autonomous_agent(
         # Copy the app spec into the project directory for the agent to read
         copy_spec_to_project(project_dir)
     else:
-        print("Continuing existing project (Beads initialized)")
+        if beads_initialized:
+            print("Continuing existing project (Beads initialized - using director mode)")
+        else:
+            print("Continuing existing project (Beads not initialized - using coding mode)")
         print_progress_summary(project_dir)
 
     # Main loop
@@ -158,11 +180,16 @@ async def run_autonomous_agent(
         # Create client (fresh context)
         client = create_client(project_dir, model)
 
-        # Choose prompt based on session type
+        # Choose prompt based on session type and Beads initialization state
         if is_first_run:
+            # First run: use initializer to set up Beads infrastructure
             prompt = get_initializer_prompt()
             is_first_run = False  # Only use initializer once
+        elif beads_initialized:
+            # Beads exists at root: use director for orchestration mode
+            prompt = get_director_prompt()
         else:
+            # No Beads: use coding prompt for direct implementation
             prompt = get_coding_prompt()
 
         # Run session with async context manager
